@@ -223,20 +223,22 @@ class Capital:
 
         # Initialize variables either with previous run data or as new arrays
         for var in variables:
-            if prev_run_data and var in prev_run_data:
-                # Get the array from prev_run_data
-                original_array = prev_run_data[var]
-                nan_extension_size = self.n - len(original_array)
-                if nan_extension_size > 0:
-                    # Extend the array with nan values if needed
-                    extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
-                    setattr(self, var, extended_array)
-                else:
-                    # If the original array is already the correct size or larger, just use it as is
-                    setattr(self, var, original_array)
+            if bool(prev_run_data):
+                for var in prev_run_data:
+                    # Get the array from prev_run_data
+                    original_array = prev_run_data[var]
+                    nan_extension_size = self.n - len(original_array)
+                    if nan_extension_size > 0:
+                        # Extend the array with nan values if needed
+                        extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
+                        setattr(self, var, extended_array)
+                    else:
+                        # If the original array is already the correct size or larger, just use it as is
+                        setattr(self, var, original_array)
             else:
                 setattr(self, var, np.full((self.n,), np.nan))
-    def set_capital_delay_functions(self, method="euler", prev_run_data=None):
+                
+    def set_capital_delay_functions(self, method="euler", prev_run_data={}):
         """
         Set the linear smoothing and delay functions for the capital sector,
         potentially using data from a previous run.
@@ -248,7 +250,7 @@ class Capital:
         for var_ in var_smooth:
             data = getattr(self, var_.lower())
             func_delay = Smooth(data, self.dt, self.time, method=method)
-            if prev_run_data:
+            if bool(prev_run_data):
                 original_out_arr = prev_run_data['smooth_' + var_.lower()]
                 for i in range(len(original_out_arr)):
                     func_delay.out_arr[i] = original_out_arr[i]
@@ -520,8 +522,8 @@ class Capital:
         """
         From step k requires: nothing
         """
-        self.alic_control_values[k] = max(self.alic_control(k), 0.01)
-        self.alic[k] = self.alic_control_values[k]
+
+        self.alic[k] = self.alic_control
 
     @requires(["icdr"], ["ic", "alic"])
     def _update_icdr(self, k, kl):
@@ -535,8 +537,7 @@ class Capital:
         """
         From step k requires: nothing
         """
-        self.icor_control_values[k] = max(self.icor_control(k), 0.01)
-        self.icor[k] = self.icor_control_values[k]
+        self.icor[k] = self.icor_control
 
     @requires(["io"], ["ic", "fcaor", "cuf", "icor"])
     def _update_io(self, k):
@@ -555,12 +556,11 @@ class Capital:
     @requires(["fioacv", "fioac"], ["iopc"])
     def _update_fioac(self, k):
         """
-        From step k requires: IOPC
+        From step k requires: IOPC ?????
         """
         self.fioacv[k] = self.fioacv_f(self.iopc[k] / self.iopcd)
-        self.fioac_control_values[k] = clip(self.fioac_control(k), 0, 1)
         self.fioac[k] = clip(
-            self.fioacv[k], self.fioac_control_values[k], self.time[k], self.iet
+            self.fioacv[k], self.fioac_control, self.time[k], self.iet
         )
 
     @requires(["sc"])
@@ -578,14 +578,14 @@ class Capital:
         """
         From step k requires: IOPC
         """
-        self.isopc[k] = self.isopc_control(k) * self.isopc_f(self.iopc[k])
+        self.isopc[k] = self.isopc_control * self.isopc_f(self.iopc[k])
 
     @requires(["alsc"])
     def _update_alsc(self, k):
         """
         From step k requires: nothing
         """
-        self.alsc[k] = max(self.alsc_control(k), 0.01)
+        self.alsc[k] = max(self.alsc_control, 0.01)
 
     @requires(["scdr"], ["sc", "alsc"])
     def _update_scdr(self, k, kl):
@@ -597,9 +597,9 @@ class Capital:
     @requires(["scor"])
     def _update_scor(self, k):
         """
-        From step k requires: nothing
+        From step k requires: nothing ????
         """
-        self.scor[k] = clip(self.scor_control(k), 0.01, 1)
+        self.scor[k] = clip(self.scor_control, 0.01, 1)
 
     @requires(["so"], ["sc", "cuf", "scor"])
     def _update_so(self, k):
@@ -620,7 +620,7 @@ class Capital:
         """
         From step k requires: SOPC ISOPC
         """
-        self.fioas[k] = self.fioas_control(k) * self.fioas_f(
+        self.fioas[k] = self.fioas_control * self.fioas_f(
             self.sopc[k] / self.isopc[k]
         )
 

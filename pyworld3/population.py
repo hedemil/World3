@@ -279,7 +279,7 @@ class Population:
         self.sad = sad
         self.zpgt = zpgt
 
-    def init_population_variables(self, prev_run_data=None):
+    def init_population_variables(self, prev_run_data={}):
         """
         Initialize the state and rate variables of the population sector
         with the option to use data from a previous run.
@@ -297,21 +297,22 @@ class Population:
 
         # Initialize variables either with previous run data or as new arrays
         for var in variables:
-            if prev_run_data and var in prev_run_data:
-                # Get the array from prev_run_data
-                original_array = prev_run_data[var]
-                nan_extension_size = self.n - len(original_array)
-                if nan_extension_size > 0:
-                    # Extend the array with nan values if needed
-                    extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
-                    setattr(self, var, extended_array)
-                else:
-                    # If the original array is already the correct size or larger, just use it as is
-                    setattr(self, var, original_array)
+            if bool(prev_run_data):
+                for var in prev_run_data:
+                    # Get the array from prev_run_data
+                    original_array = prev_run_data[var]
+                    nan_extension_size = self.n - len(original_array)
+                    if nan_extension_size > 0:
+                        # Extend the array with nan values if needed
+                        extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
+                        setattr(self, var, extended_array)
+                    else:
+                        # If the original array is already the correct size or larger, just use it as is
+                        setattr(self, var, original_array)
             else:
                 setattr(self, var, np.full((self.n,), np.nan))
 
-    def set_population_delay_functions(self, method="euler", prev_run_data=None):
+    def set_population_delay_functions(self, method="euler", prev_run_data={}):
         """
         Set the linear smoothing and delay functions of the 1st or the 3rd
         order, for the population sector, potentially using data from a previous run.
@@ -323,18 +324,18 @@ class Population:
         for var_ in var_dlinf3:
             data = getattr(self, var_.lower())
             func_delay = Dlinf3(data, self.dt, self.time, method=method)
-            if prev_run_data:
+            if bool(prev_run_data):
                 original_out_arr = prev_run_data['dlinf3_' + var_.lower()]
                 for i in range(len(original_out_arr)):
                     func_delay.out_arr[i] = original_out_arr[i]
-                    
+        
             setattr(self, "dlinf3_" + var_.lower(), func_delay)
 
         var_smooth = ["HSAPC", "IOPC"]
         for var_ in var_smooth:
             data = getattr(self, var_.lower())
             func_delay = Smooth(data, self.dt, self.time, method=method)
-            if prev_run_data:
+            if bool(prev_run_data):
                 original_out_arr = prev_run_data['smooth_' + var_.lower()]
                 for i in range(len(original_out_arr)):
                     func_delay.out_arr[i] = original_out_arr[i]
@@ -722,8 +723,8 @@ class Population:
         """
         self.lmhs1[k] = self.lmhs1_f(self.ehspc[k])
         self.lmhs2[k] = self.lmhs2_f(self.ehspc[k])
-        self.lmhs_control_values[k] = max(0, self.lmhs_control(k))
-        self.lmhs[k] = self.lmhs_control_values[k] * clip(
+        self.lmhs_control = max(0, self.lmhs_control)
+        self.lmhs[k] = self.lmhs_control * clip(
             self.lmhs2[k], self.lmhs1[k], self.time[k], self.iphst
         )
 

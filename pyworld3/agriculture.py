@@ -292,7 +292,7 @@ class Agriculture:
         self.fspd = fspd
         self.sfpc = sfpc
 
-    def init_agriculture_variables(self, prev_run_data=None):
+    def init_agriculture_variables(self, prev_run_data={}):
         """
         Initialize the state and rate variables of the agriculture sector
         with the option to use data from a previous run.
@@ -312,21 +312,22 @@ class Agriculture:
         
         # Initialize variables either with previous run data or as new arrays
         for var in variables:
-            if prev_run_data and var in prev_run_data:
-                # Get the array from prev_run_data
-                original_array = prev_run_data[var]
-                nan_extension_size = self.n - len(original_array)
-                if nan_extension_size > 0:
-                    # Extend the array with nan values if needed
-                    extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
-                    setattr(self, var, extended_array)
-                else:
-                    # If the original array is already the correct size or larger, just use it as is
-                    setattr(self, var, original_array)
+            if bool(prev_run_data):
+                for var in prev_run_data:
+                    # Get the array from prev_run_data
+                    original_array = prev_run_data[var]
+                    nan_extension_size = self.n - len(original_array)
+                    if nan_extension_size > 0:
+                        # Extend the array with nan values if needed
+                        extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
+                        setattr(self, var, extended_array)
+                    else:
+                        # If the original array is already the correct size or larger, just use it as is
+                        setattr(self, var, original_array)
             else:
                 setattr(self, var, np.full((self.n,), np.nan))
 
-    def set_agriculture_delay_functions(self, method="euler", prev_run_data=None):
+    def set_agriculture_delay_functions(self, method="euler", prev_run_data = {}):
         """
         Set the linear smoothing and delay functions for the agriculture sector,
         potentially using data from a previous run.
@@ -338,7 +339,7 @@ class Agriculture:
         for var_ in var_smooth:
             data = getattr(self, var_.lower())
             func_delay = Smooth(data, self.dt, self.time, method=method)
-            if prev_run_data:
+            if bool(prev_run_data):
                 original_out_arr = prev_run_data['smooth_' + var_.lower()]
                 for i in range(len(original_out_arr)):
                     func_delay.out_arr[i] = original_out_arr[i]
@@ -629,8 +630,7 @@ class Agriculture:
         """
         From step k requires: IOPC
         """
-        self.ifpc_control_values[k] = max(0, self.ifpc_control(k))
-        self.ifpc[k] = self.ifpc_control_values[k] * self.ifpc_f(self.iopc[k])
+        self.ifpc[k] = self.ifpc_control* self.ifpc_f(self.iopc[k])
 
     @requires(["tai"], ["io", "fioaa"])
     def _update_tai(self, k):
@@ -644,8 +644,7 @@ class Agriculture:
         """
         From step k requires: FPC IFPC
         """
-        self.fioaa_control_values[k] = max(0, self.fioaa_control(k))
-        self.fioaa[k] = self.fioaa_control_values[k] * self.fioaa_f(
+        self.fioaa[k] = self.fioaa_control * self.fioaa_f(
             self.fpc[k] / self.ifpc[k]
         )
 
@@ -683,8 +682,7 @@ class Agriculture:
         """
         From step k requires: nothing
         """
-        self.alai_control_values[k] = self.alai_control(k)
-        self.alai[k] = self.alai_control_values[k]
+        self.alai[k] = self.alai_control
 
     @requires(["aiph"], ["ai", "falm", "al"])
     def _update_aiph(self, k):
@@ -712,16 +710,14 @@ class Agriculture:
         """
         From step k requires: nothing
         """
-        self.lyf_control_values[k] = max(self.lyf_control(k), 0.01)
-        self.lyf[k] = self.lyf_control_values[k]
+        self.lyf[k] = self.lyf_control
 
     @requires(["lymap"], ["io"])
     def _update_lymap(self, k):
         """
         From step k requires: IO
         """
-        self.lymap_control_values[k] = max(0, self.lymap_control(k))
-        self.lymap[k] = self.lymap_control_values[k] * self.lymap_f(
+        self.lymap[k] = self.lymap_control * self.lymap_f(
             self.io[k] / self.io70
         )
 
@@ -765,8 +761,7 @@ class Agriculture:
         """
         From step k requires: LY
         """
-        self.llmy_control_values[k] = max(0, self.llmy_control(k))
-        self.llmy[k] = self.llmy_control_values[k] * self.llmy_f(self.ly[k] / self.ilf)
+        self.llmy[k] = self.llmy_control* self.llmy_f(self.ly[k] / self.ilf)
 
     @requires(["ler"], ["al", "all"])
     def _update_ler(self, k, kl):

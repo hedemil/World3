@@ -142,21 +142,22 @@ class Resource:
 
         # Initialize variables either with previous run data or as new arrays
         for var in variables:
-            if prev_run_data and var in prev_run_data:
-                # Get the array from prev_run_data
-                original_array = prev_run_data[var]
-                nan_extension_size = self.n - len(original_array)
-                if nan_extension_size > 0:
-                    # Extend the array with nan values if needed
-                    extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
-                    setattr(self, var, extended_array)
-                else:
-                    # If the original array is already the correct size or larger, just use it as is
-                    setattr(self, var, original_array)
+            if bool(prev_run_data):
+                for var in prev_run_data:
+                    # Get the array from prev_run_data
+                    original_array = prev_run_data[var]
+                    nan_extension_size = self.n - len(original_array)
+                    if nan_extension_size > 0:
+                        # Extend the array with nan values if needed
+                        extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
+                        setattr(self, var, extended_array)
+                    else:
+                        # If the original array is already the correct size or larger, just use it as is
+                        setattr(self, var, original_array)
             else:
                 setattr(self, var, np.full((self.n,), np.nan))
 
-    def set_resource_delay_functions(self, method="euler", prev_run_data=None):
+    def set_resource_delay_functions(self, method="euler"):
         """
         Set the linear smoothing and delay functions of the 1st or the 3rd
         order, for the resource sector. One should call
@@ -342,16 +343,14 @@ class Resource:
         """
         From step k requires: NRFR
         """
-        self.fcaor_control_values[k] = max(0, self.fcaor_control(k))
-        self.fcaor[k] = self.fcaor_control_values[k] * self.fcaor_f(self.nrfr[k])
+        self.fcaor[k] = self.fcaor_control * self.fcaor_f(self.nrfr[k])
 
     @requires(["nruf"])
     def _update_nruf(self, k):
         """
         From step k requires: nothing
         """
-        self.nruf_control_values[k] = self.nruf_control(k)
-        self.nruf[k] = self.nruf_control_values[k]
+        self.nruf[k] = self.nruf_control
 
     @requires(["pcrum"], ["iopc"])
     def _update_pcrum(self, k):

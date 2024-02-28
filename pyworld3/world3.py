@@ -94,24 +94,51 @@ class World3(Population, Capital, Agriculture, Pollution, Resource):
         year_max=2200,
         dt=0.5,
         verbose=False,
-        prev_run_data=None,
+        prev_world_prop = None,
+        ordinary_run = True
     ):
         self.iphst = 1940
         self.dt = dt
         self.year_min = year_min
         self.year_max = year_max
         self.length = self.year_max - self.year_min
-        self.n = int(self.length / self.dt) + 1 if prev_run_data is None else int(self.length / self.dt) + prev_run_data['n']
+        self.n =  int(self.length / self.dt) + prev_world_prop["n"]  if prev_world_prop else int(self.length / self.dt) + 1
         time_run = arange(self.year_min, self.year_max + self.dt, self.dt)
-        self.time = time_run if prev_run_data is None else np.concatenate([prev_run_data['time'], time_run[1:]])
+        self.time =  np.concatenate([prev_world_prop['time'], time_run[1:]]) if prev_world_prop else time_run
         self.verbose = verbose
+        self.new_sim = True
+        self.ordinary_run = ordinary_run
 
-    def set_world3_control(self, **control_functions):
-        self.set_capital_control(**control_functions)
-        self.set_agriculture_control(**control_functions)
-        self.set_pollution_control(**control_functions)
-        self.set_population_control(**control_functions)
-        self.set_resource_control(**control_functions)
+    def set_world3_control(self,control_vals = None):
+        # signature before editing: def set_world3_control(self, **control_functions):
+        # self.set_capital_control(**control_functions)
+        # self.set_agriculture_control(**control_functions)
+        # self.set_pollution_control(**control_functions)
+        # self.set_population_control(**control_functions)
+        # self.set_resource_control(**control_functions)
+        
+        if control_vals:
+            for control_val in control_vals:
+                setattr(self, control_val, control_vals[control_val])
+        else:
+            self.alai_control = 2
+            self.lyf_control = 1
+            self.ifpc_control = 1
+            self.lymap_control = 1
+            self.llmy_control = 1
+            self.fioaa_control = 1
+            self.icor_control = 3
+            self.scor_control = 1
+            self.alic_control = 14
+            self.alsc_control = 20
+            self.fioac_control = 0.43
+            self.isopc_control = 1
+            self.fioas_control = 1
+            self.ppgf_control = 1
+            self.pptd_control = 20
+            self.lmhs_control = 1
+            self.nruf_control = 1
+            self.fcaor_control = 1
 
     def init_world3_constants(
         self,
@@ -212,25 +239,28 @@ class World3(Population, Capital, Agriculture, Pollution, Resource):
         )
         self.init_resource_constants(nri)
 
-    def init_world3_variables(self, prev_run_data=None):
+    def init_world3_variables(self, prev_run =None ):
         """
         Initialize the state and rate variables of the 5 sectors (memory
         allocation). Variables and their unit are defined in the documentation
         of the corresponding sectors.
 
         """
-         # Ensure prev_run_data is a dictionary if not provided
-        if prev_run_data is None:
-            prev_run_data = {}
+        if prev_run:
+            self.init_population_variables(prev_run["population"])
+            self.init_capital_variables(prev_run["capital"])
+            self.init_agriculture_variables(prev_run["agriculture"])
+            self.init_pollution_variables(prev_run["pollution"])
+            self.init_resource_variables(prev_run["resource"])
+        else:
+            self.init_population_variables()
+            self.init_capital_variables()
+            self.init_agriculture_variables()
+            self.init_pollution_variables()
+            self.init_resource_variables()
 
-        self.init_population_variables(prev_run_data=prev_run_data.get('population'))
-        self.init_capital_variables(prev_run_data=prev_run_data.get('capital'))
-        self.init_agriculture_variables(prev_run_data=prev_run_data.get('agriculture'))
-        self.init_pollution_variables(prev_run_data=prev_run_data.get('pollution'))
-        self.init_resource_variables(prev_run_data=prev_run_data.get('resource'))
 
-
-    def set_world3_delay_functions(self, method="euler", prev_run_data=None):
+    def set_world3_delay_functions(self, method="euler", prev_delay={}):
         """
         Set the linear smoothing and delay functions of the 1st or the 3rd
         order, in the 5 sectors. The effect depends on time constants, defined
@@ -245,15 +275,12 @@ class World3(Population, Capital, Agriculture, Pollution, Resource):
             "euler".
 
         """
-        # Ensure prev_run_data is a dictionary if not provided
-        if prev_run_data is None:
-            prev_run_data = {}
 
-        self.set_population_delay_functions(method=method, prev_run_data=prev_run_data.get('population_delay'))
-        self.set_capital_delay_functions(method=method, prev_run_data=prev_run_data.get('capital'))
-        self.set_agriculture_delay_functions(method=method, prev_run_data=prev_run_data.get('agriculture'))
-        self.set_pollution_delay_functions(method=method, prev_run_data=prev_run_data.get('pollution'))
-        self.set_resource_delay_functions(method=method, prev_run_data=prev_run_data.get('resource'))
+        self.set_population_delay_functions(method=method, prev_run_data = prev_delay)
+        self.set_capital_delay_functions(method=method, prev_run_data = prev_delay)
+        self.set_agriculture_delay_functions(method=method, prev_run_data = prev_delay)
+        self.set_pollution_delay_functions(method=method,prev_run_data = prev_delay)
+        self.set_resource_delay_functions(method=method) #Does not have any delay functions.
 
     def set_world3_table_functions(self, json_file=None):
         """
@@ -284,28 +311,211 @@ class World3(Population, Capital, Agriculture, Pollution, Resource):
 
         """
         if fast:
-            k = self._run_world3_fast(first=first, k_index=k_index)
+            self._run_world3_fast(k_index=k_index)
         else:
-            k = self._run_world3(first=first, k_index=k_index)
+            self._run_world3(k_index=k_index)
 
-        return k
-    
-    def _run_world3(self, first=True, k_index=1):
+    def get_state(self):
+        return   {
+        'init_vars':{
+            'population': {
+                'p1': self.p1,
+                'p2': self.p2,
+                'p3': self.p3,
+                'p4': self.p4,
+                'pop': self.pop,
+                'mat1': self.mat1,
+                'mat2': self.mat2,
+                'mat3': self.mat3,
+                'd': self.d,
+                'd1': self.d1,
+                'd2': self.d2,
+                'd3': self.d3,
+                'd4': self.d4,
+                'cdr': self.cdr,
+                'ehspc': self.ehspc,
+                'fpu': self.fpu,
+                'hsapc': self.hsapc,
+                'le': self.le,
+                'lmc': self.lmc,
+                'lmf': self.lmf,
+                'lmhs': self.lmhs,
+                'lmhs1': self.lmhs1,
+                'lmhs2': self.lmhs2,
+                'lmp': self.lmp,
+                'm1': self.m1,
+                'm2': self.m2,
+                'm3': self.m3,
+                'm4': self.m4,
+                'b': self.b,
+                'aiopc': self.aiopc,
+                'cbr': self.cbr,
+                'cmi': self.cmi,
+                'cmple': self.cmple,
+                'diopc': self.diopc,
+                'dtf': self.dtf,
+                'dcfs': self.dcfs,
+                'fcapc': self.fcapc,
+                'fce': self.fce,
+                'fcfpc': self.fcfpc,
+                'fie': self.fie,
+                'fm': self.fm,
+                'frsn': self.frsn,
+                'fsafc': self.fsafc,
+                'mtf': self.mtf,
+                'nfc': self.nfc,
+                'ple': self.ple,
+                'sfsn': self.sfsn,
+                'tf': self.tf,
+            },
+            'capital': {
+                'ic': self.ic,
+                'io': self.io,
+                'icdr': self.icdr,
+                'icir': self.icir,
+                'icor': self.icor,
+                'iopc': self.iopc,
+                'alic': self.alic,
+                'fioac': self.fioac,
+                'fioacv': self.fioacv,
+                'fioai': self.fioai,
+                'sc': self.sc,
+                'so': self.so,
+                'scdr': self.scdr,
+                'scir': self.scir,
+                'scor': self.scor,
+                'sopc': self.sopc,
+                'alsc': self.alsc,
+                'isopc': self.isopc,
+                'fioas': self.fioas,
+                'j': self.j,
+                'jph': self.jph,
+                'jpicu': self.jpicu,
+                'jpscu': self.jpscu,
+                'lf': self.lf,
+                'cuf': self.cuf,
+                'luf': self.luf,
+                'lufd': self.lufd,
+                'pjas': self.pjas,
+                'pjis': self.pjis,
+                'pjss': self.pjss,
+            },
+            'agriculture': {
+                'al': self.al,
+                'pal': self.pal,
+                'dcph': self.dcph,
+                'f': self.f,
+                'fpc': self.fpc,
+                'fioaa': self.fioaa,
+                'ifpc': self.ifpc,
+                'ldr': self.ldr,
+                'lfc': self.lfc,
+                'tai': self.tai,
+                'ai': self.ai,
+                'aiph': self.aiph,
+                'alai': self.alai,
+                'cai': self.cai,
+                'ly': self.ly,
+                'lyf': self.lyf,
+                'lymap': self.lymap,
+                'lymc': self.lymc,
+                'fiald': self.fiald,
+                'mlymc': self.mlymc,
+                'mpai': self.mpai,
+                'mpld': self.mpld,
+                'uil': self.uil,
+                'all': self.all,
+                'llmy': self.llmy,
+                'ler': self.ler,
+                'lrui': self.lrui,
+                'uilpc': self.uilpc,
+                'uilr': self.uilr,
+                'lfert': self.lfert,
+                'lfd': self.lfd,
+                'lfdr': self.lfdr,
+                'lfr': self.lfr,
+                'lfrt': self.lfrt,
+                'falm': self.falm,
+                'fr': self.fr,
+                'pfr': self.pfr,
+            },
+            'pollution': {
+                'ppol': self.ppol,
+                'ppolx': self.ppolx,
+                'ppgao': self.ppgao,
+                'ppgio': self.ppgio,
+                'ppgf': self.ppgf,
+                'ppgr': self.ppgr,
+                'ppapr': self.ppapr,
+                'ppasr': self.ppasr,
+                'pptd': self.pptd,
+                'ahl': self.ahl,
+                'ahlm': self.ahlm,
+            },
+            'resource': {
+                'nr': self.nr,
+                'nrfr': self.nrfr,
+                'nruf': self.nruf,
+                'nrur': self.nrur,
+                'pcrum': self.pcrum,
+                'fcaor': self.fcaor,
+            },
+        },
+        'delay_funcs':{
+            'smooth_hsapc': self.smooth_hsapc.out_arr,
+            'smooth_iopc': self.smooth_iopc.out_arr,
+            'dlinf3_le': self.dlinf3_le.out_arr,
+            'dlinf3_iopc': self.dlinf3_iopc.out_arr,
+            'dlinf3_fcapc': self.dlinf3_fcapc.out_arr,
+            'delay3_ppgr': self.delay3_ppgr.out_arr,
+            'smooth_cai': self.smooth_cai.out_arr,
+            'smooth_fr': self.smooth_fr.out_arr,
+            'smooth_luf': self.smooth_luf.out_arr,
+        },
+        'world_props':{
+            'time': self.time,
+            'n': self.n,
+            'k': self.k
+        },
+        'control_signals' : {
+            'ifpc_control': self.ifpc_control,
+            'fioaa_control' : self.fioaa_control,
+            'alai_control' : self.alai_control,
+            'lyf_control': self.lyf_control,
+            'lymap_control' : self.lymap_control,
+            'llmy_control' : self.llmy_control,
+            'icor_control' : self.icor_control,
+            'scor_control' : self.scor_control,
+            'alic_control' : self.alic_control,
+            'alsc_control' : self.alsc_control,
+            'fioac_control' : self.fioac_control,
+            'isopc_control' : self.isopc_control,
+            'fioas_control' : self.fioas_control,
+            'ppgf_control' : self.ppgf_control,
+            'pptd_control' : self.pptd_control,
+            'lmhs_control' : self.lmhs_control,
+            'nruf_control' : self.nruf_control,
+            'fcaor_control' : self.fcaor_control,
+        }
+
+    }
+
+    def _run_world3(self, k_index=1):
         """
         Run an unsorted sequence of updates of the 5 sectors, and reschedules
         each loop computation until all variables are computed.
 
         """
-        
-        self.redo_loop = first
-        while self.redo_loop:
+        self.redo_loop = True
+
+        while self.redo_loop and self.ordinary_run:
             self.redo_loop = False
             self.loop0_population()
             self.loop0_capital()
             self.loop0_agriculture()
             self.loop0_pollution()
             self.loop0_resource()
-        redo = self.redo_loop
+
         for k_ in range(k_index, self.n):
             self.redo_loop = True
             while self.redo_loop:
@@ -318,9 +528,9 @@ class World3(Population, Capital, Agriculture, Pollution, Resource):
                 self.loopk_agriculture(k_ - 1, k_, k_ - 1, k_)
                 self.loopk_pollution(k_ - 1, k_, k_ - 1, k_)
                 self.loopk_resource(k_ - 1, k_, k_ - 1, k_)
+        
+        self.k = k_
                 
-        return k_
-
     def _run_world3_fast(self, first=True, k_index=1):
         """
         Run a sorted sequence to update the model, with no

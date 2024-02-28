@@ -185,21 +185,22 @@ class Pollution:
 
         # Initialize variables either with previous run data or as new arrays
         for var in variables:
-            if prev_run_data and var in prev_run_data:
-                # Get the array from prev_run_data
-                original_array = prev_run_data[var]
-                nan_extension_size = self.n - len(original_array)
-                if nan_extension_size > 0:
-                    # Extend the array with nan values if needed
-                    extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
-                    setattr(self, var, extended_array)
-                else:
-                    # If the original array is already the correct size or larger, just use it as is
-                    setattr(self, var, original_array)
+            if bool(prev_run_data):
+                for var in prev_run_data:
+                    # Get the array from prev_run_data
+                    original_array = prev_run_data[var]
+                    nan_extension_size = self.n - len(original_array)
+                    if nan_extension_size > 0:
+                        # Extend the array with nan values if needed
+                        extended_array = np.concatenate([original_array, np.full(nan_extension_size, np.nan)])
+                        setattr(self, var, extended_array)
+                    else:
+                        # If the original array is already the correct size or larger, just use it as is
+                        setattr(self, var, original_array)
             else:
                 setattr(self, var, np.full((self.n,), np.nan))
 
-    def set_pollution_delay_functions(self, method="euler", prev_run_data=None):
+    def set_pollution_delay_functions(self, method="euler", prev_run_data={}):
         """
         Set the linear smoothing and delay functions for the pollution sector,
         potentially using data from a previous run.
@@ -211,11 +212,11 @@ class Pollution:
         for var_ in var_delay3:
             data = getattr(self, var_.lower()) 
             func_delay = Delay3(data, self.dt, self.time, method=method)
-            if prev_run_data:
+            if bool(prev_run_data):
                 original_out_arr = prev_run_data['delay3_' + var_.lower()]
                 for i in range(len(original_out_arr)):
                     func_delay.out_arr[i] = original_out_arr[i]
-
+                    
             setattr(self, "delay3_" + var_.lower(), func_delay)
 
 
@@ -455,10 +456,9 @@ class Pollution:
     @requires(["ppgf"])
     def _update_ppgf(self, k):
         """
-        From step k requires: nothing
+        From step k requires: nothing ????
         """
-        self.ppgf_control_values[k] = clip(self.ppgf_control(k), 0.01, 1)
-        self.ppgf[k] = self.ppgf_control_values[k]
+        self.ppgf[k] = self.ppgf_control
 
     @requires(["ppgr"], ["ppgio", "ppgao", "ppgf"])
     def _update_ppgr(self, k, kl):
@@ -472,8 +472,7 @@ class Pollution:
         """
         From step k requires: nothing
         """
-        self.pptd_control_values[k] = self.pptd_control(k)
-        self.pptd[k] = self.pptd_control_values[k]
+        self.pptd[k] = self.pptd_control
 
     @requires(["ppapr"], ["ppgr"], check_after_init=False)
     def _update_ppapr(self, k, kl):
