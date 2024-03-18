@@ -1,3 +1,9 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
+
 from dqn import DQNAgent
 import matplotlib.pyplot as plt
 import numpy as np
@@ -143,7 +149,7 @@ def simulate_step(year, prev_data, action_combination_index, control_signals):
 state_size = 3  # For example: population, life expectancy, food ratio
 action_size = len(action_combinations)  # Assume 5 possible actions for simplicity
 agent = DQNAgent(state_size, action_size)
-episodes = 10
+episodes = 100
 batch_size = 32
 year_step = 5
 year_max = 2200
