@@ -19,9 +19,9 @@ world3.run_world3(fast=False)
 # Plot the combined results
 plot_world_variables(
     world3.time,
-    [world3.fpc, world3.fr, world3.pop, world3.ppolx],
-    ["FPC", "FR", "POP", "PPOLX"],
-    [[0, 2e3], [0, 5], [0, 10e9], [0, 20]],
+    [world3.le, world3.fr, world3.pop, world3.ppolx],
+    ["LE", "FR", "POP", "PPOLX"],
+    [[0, 90], [0, 5], [0, 10e9], [0, 20]],
     figsize=(10, 7),
     title="World3 Simulation from 1900 to 2100, standard"
 )

@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-from more_itertools import last
 
 import numpy as np
 
@@ -48,14 +47,14 @@ def main():
     prev_data, world3 = run_world3_simulation(year_min=1900, year_max=2000)
 
 
-    for year in range(2005, 2100, 5):
+    for year in range(2005, 2200, 5):
         # Run the second simulation with initial conditions derived from the first simulation
         prev_data, world3_current = run_world3_simulation(year_min=year-5, year_max=year, prev_run_data=prev_data, ordinary_run=False, k_index=prev_data["world_props"]["k"])
 
         control_variables = ['ppgf']
         # prev_data['control_signals'] = update_control(control_variables, 0.9, prev_data['control_signals'])
 
-    variables = [world3_current.le, world3_current.fr, world3_current.sc, world3_current.pop]
+    variables = [world3_current.le, world3_current.fr, world3_current.sc, world3_current.pop, world3_current.lfdr]
     labels = ["LE", "FR", "SC", "POP"]
    
     # Plot the combined results
@@ -63,9 +62,9 @@ def main():
         world3_current.time,
         variables,
         labels,
-        [[0, 100], [0, 3], [0, 6e12],  [0, 10e9]],
+        [[0, 100], [0, 4], [0, 6e12],  [0, 10e9]],
         figsize=(10, 7),
-        title="World3 Simulation from 1900 to 2100, paused at 2000"
+        title="World3 Simulation from 1900 to 2200, paused at 2000"
     )
     # Initialize a position for the first annotation
     x_pos = 0.05  # Adjust as needed
