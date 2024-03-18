@@ -66,7 +66,6 @@ def calculate_reward(current_world):
     reward -= 10000 if current_world.pop[-1] < 6e9 or current_world.pop[-1] > 8e9 else 0
     return reward
 
-    
 def run_world3_simulation(year_min, year_max, dt=1, prev_run_data=None, ordinary_run=True, k_index=1):
     
     prev_run_prop = prev_run_data["world_props"] if prev_run_data else None
@@ -107,44 +106,6 @@ def update_control(control_signals_actions, prev_control):
         prev_control[control_signal + '_control'] *= action_value
     return prev_control
 
-def simulate_step(year, prev_data, action_combination_index, control_signals):
-    """
-    Simulate one step of the World3 model based on the given action and update control signals.
-
-    :param year: Current year of simulation.
-    :param prev_data: Previous run data of the World3 model.
-    :param action_combination_index: Index of the selected action combination.
-    :param control_signals: List of control signals to be adjusted.
-    :return: Tuple of (next_state, reward, done)
-    """
-    
-    # Retrieve the action combination using the selected index
-    selected_action_combination = action_combinations[action_combination_index]
-    
-    # Update control signals based on the selected action
-    control_variables_actions = list(zip(control_signals, selected_action_combination))
-    prev_data['control_signals'] = update_control(control_variables_actions, prev_data['control_signals'])
-    
-    # Run the World3 model for the next step
-    next_year = year + year_step
-    prev_data, world3_current = run_world3_simulation(year_min=year, year_max=next_year, prev_run_data=prev_data, ordinary_run=False)
-    
-    # Extract necessary variables for state and reward calculation
-    current_pop = world3_current.pop[-1]
-    current_le = world3_current.le[-1]
-    current_fr = world3_current.fr[-1]  # Assuming 'fr' is a food ratio or similar
-    
-    # Calculate next state
-    next_state = get_state_vector(current_pop, current_le, current_fr)
-    
-    # Calculate reward (this function needs to be defined based on your criteria)
-    reward = calculate_reward(world3_current)
-    
-    # Check if simulation is done (e.g., reached final year)
-    done = next_year >= year_max
-    
-    return next_state, reward, done
-
 # Define the environment / simulation parameters
 state_size = 3  # For example: population, life expectancy, food ratio
 action_size = len(action_combinations)  # Assume 5 possible actions for simplicity
@@ -155,28 +116,8 @@ year_step = 5
 year_max = 2200
 year_start = 2000
 
-
-# Loop over episodes
-for e in range(episodes):
-    # Run the first simulation
-    prev_data, world3_start = run_world3_simulation(year_min=1900, year_max=2000)
-    current_pop = prev_data['init_vars']['population']['pop'][-1]
-    current_le = prev_data['init_vars']['population']['le'][-1]
-    current_fr = prev_data['init_vars']['agriculture']['fr'][-1]
-    state = get_state_vector(current_pop, current_le, current_fr)
-    for year in (year_start, year_max + 1, year_step):  # Assume a maximum of 50 timesteps per episode
-        action = agent.act(state)
-        next_state, reward, done = simulate_step(year, prev_data, action, control_signals)
-        agent.remember(state, action, reward, next_state, done)
-        state = next_state
-        if done:
-            break
-    if len(agent.memory) > batch_size:
-        agent.replay(batch_size)
-        
-agent.save("your_model.weights.h5")
-
 prev_data_optimal, world3_frst = run_world3_simulation(year_min=1900, year_max=2000)
+
 
 for year in range(year_start, year_max + 1, year_step):
     # Get the current state in vector form
