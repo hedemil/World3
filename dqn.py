@@ -6,18 +6,22 @@ from keras.optimizers import Adam
 import random
 from collections import deque
 
-# Assuming the World3 model and related utilities are correctly imported and initialized elsewhere
+# Set seeds for reproducibility
+np.random.seed(42)
+random.seed(42)
+tf.random.set_seed(42)
 
 class DQNAgent:
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, verbose=0):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
-        self.gamma = 0.95    # discount rate
+        self.gamma = 0.95  # discount rate
         self.epsilon = 1.0  # exploration rate
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
+        self.verbose = verbose  # Control the verbosity of training
         self.model = self._build_model()
 
     def _build_model(self):
@@ -39,37 +43,24 @@ class DQNAgent:
         return np.argmax(act_values[0])  # returns action
 
     def replay(self, batch_size):
+        if len(self.memory) < batch_size:
+            return  # not enough memory to replay
         minibatch = random.sample(self.memory, batch_size)
         for state, action, reward, next_state, done in minibatch:
-            # state and next_state should already be numpy arrays with the correct shape
-            # But ensure they are 2D arrays suitable for batch processing by the model
-            # No change required if you're storing them correctly when calling remember
-
             target = reward
             if not done:
-                target = reward + self.gamma * np.amax(self.model.predict(next_state)[0])
+                next_state_val = self.model.predict(next_state)[0]
+                target = reward + self.gamma * np.amax(next_state_val)
             target_f = self.model.predict(state)
             target_f[0][action] = target
-            
-            # Fit the model
-            self.model.fit(state, target_f, epochs=1, verbose=0)
+            self.model.fit(state, target_f, epochs=1, verbose=self.verbose)
         
         # Decay the exploration rate
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
-
-
     def load(self, path_to_weights):
-        """
-        Load the trained model weights.
-        :param path_to_weights: Path to the .h5 file containing the trained model weights.
-        """
         self.model.load_weights(path_to_weights)
 
     def save(self, path_to_weights):
-        """
-        Save the model weights.
-        :param path_to_weights: Path where the model weights will be saved (including filename, e.g., 'model_weights.h5').
-        """
         self.model.save_weights(path_to_weights)

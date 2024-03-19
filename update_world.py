@@ -54,15 +54,15 @@ def main():
         control_variables = ['ppgf']
         # prev_data['control_signals'] = update_control(control_variables, 0.9, prev_data['control_signals'])
 
-    variables = [world3_current.le, world3_current.fr, world3_current.sc, world3_current.pop, world3_current.lfdr]
-    labels = ["LE", "FR", "SC", "POP"]
+    variables = [world3_current.hsapc, world3_current.p1, world3_current.ehspc]
+    labels = ["HSAPC", "P1", "EHSPC"]
    
     # Plot the combined results
     plot_world_variables(
         world3_current.time,
         variables,
         labels,
-        [[0, 100], [0, 4], [0, 6e12],  [0, 10e9]],
+        [[0, 1.5*max(world3_current.hsapc)], [0, 4e9], [0, 80]],
         figsize=(10, 7),
         title="World3 Simulation from 1900 to 2200, paused at 2000"
     )

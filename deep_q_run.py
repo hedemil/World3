@@ -17,8 +17,10 @@ params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
 
 actions = [0.9, 0.95, 1.0, 1.05, 1.1]  # Action space
-control_signals = ['pptd', 'fioas', 'alai']
-num_states = 27
+control_signals = ['alai', 'lyf', 'ifpc', 'lymap', 'llmy', 'fioaa', 
+                   'icor', 'scor', 'alic', 'alsc', 'fioac', 'isopc', 
+                   'fioas', 'ppgf', 'pptd', 'nruf', 'fcaor']
+num_states = 4096
 num_actions = len(actions)
 num_control_signals = len(control_signals)
 
@@ -26,31 +28,55 @@ num_control_signals = len(control_signals)
 # Generate all combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
 
+# States for optimizing hsapc
+def discretize_p1(p1):
+    if p1 < 1e9: return 0
+    elif p1 < 2e9: return 1
+    elif p1 < 3e9: return 2
+    else: return 3
+
+def discretize_p2(p2):
+    if p2 < 1e9: return 0
+    elif p2 < 2e9: return 1
+    elif p2 < 3e9: return 2
+    else: return 3
+
+def discretize_p3(p3):
+    if p3 < 1e9: return 0
+    elif p3 < 2e9: return 1
+    elif p3 < 3e9: return 2
+    else: return 3
+
+def discretize_p4(p4):
+    if p4 < 1e9: return 0
+    elif p4 < 2e9: return 1
+    elif p4 < 3e9: return 2
+    else: return 3
+
+def discretize_hsapc(hsapc):
+    if hsapc < 25: return 0
+    elif hsapc < 50: return 1
+    elif hsapc < 75: return 2
+    else: return 3
+
+def discretize_ehspc(ehspc):
+    if ehspc < 20: return 0
+    elif ehspc < 40: return 1
+    elif ehspc < 60: return 2
+    else: return 3
 
 
-def discretize_pop(pop):
-    if pop < 5e9: return 0
-    elif pop < 7e9: return 1
-    else: return 2
+def get_state_vector(p1, p2, p3, p4, hsapc, ehspc):
+    p1_index = discretize_p1(p1)
+    p2_index = discretize_p1(p2)
+    p3_index = discretize_p1(p3)
+    p4_index = discretize_p1(p4)
 
-def discretize_le(le):
-    if le < 50: return 0
-    elif le < 70: return 1
-    else: return 2
-
-def discretize_fr(fr):
-    if fr < 1.5: return 0
-    elif fr < 2.5: return 1
-    else: return 2
-
-
-
-def get_state_vector(pop, le, fr):
-    pop_index = discretize_pop(pop)
-    le_index = discretize_le(le)
-    fr_index = discretize_fr(fr)
+    hsapc_index = discretize_hsapc(hsapc)
+    ehspc_index = discretize_ehspc(ehspc)
     # Return a numpy array with the state represented as a vector
-    return np.array([pop_index, le_index, fr_index]).reshape(1, -1)
+    return np.array([p1_index, p2_index, p3_index, p4_index, hsapc_index, ehspc_index]).reshape(1, -1)
+
 
 # Reward calculation
 def calculate_reward(current_world):
@@ -107,11 +133,11 @@ def update_control(control_signals_actions, prev_control):
     return prev_control
 
 # Define the environment / simulation parameters
-state_size = 3  # For example: population, life expectancy, food ratio
+state_size = 6  # For example: population, life expectancy, food ratio
 action_size = len(action_combinations)  # Assume 5 possible actions for simplicity
 agent = DQNAgent(state_size, action_size)
-episodes = 100
-batch_size = 32
+# Load previously saved model weights
+agent.load("your_model.weights.h5")
 year_step = 5
 year_max = 2200
 year_start = 2000
@@ -121,10 +147,13 @@ prev_data_optimal, world3_frst = run_world3_simulation(year_min=1900, year_max=2
 
 for year in range(year_start, year_max + 1, year_step):
     # Get the current state in vector form
-    current_pop = prev_data_optimal['init_vars']['population']['pop'][-1]
-    current_le = prev_data_optimal['init_vars']['population']['le'][-1]
-    current_fr = prev_data_optimal['init_vars']['agriculture']['fr'][-1]
-    state_vector = get_state_vector(current_pop, current_le, current_fr)
+    current_p1 = prev_data_optimal['init_vars']['population']['p1'][-1]
+    current_p2 = prev_data_optimal['init_vars']['population']['p2'][-1]
+    current_p3 = prev_data_optimal['init_vars']['population']['p3'][-1]
+    current_p4 = prev_data_optimal['init_vars']['population']['p4'][-1]
+    current_hsapc = prev_data_optimal['init_vars']['population']['hsapc'][-1]
+    current_ehspc = prev_data_optimal['init_vars']['population']['ehspc'][-1]
+    state_vector = get_state_vector(current_p1, current_p2, current_p3, current_p4, current_hsapc, current_ehspc)
     
     # Use the DQN model to find the optimal action
     action_index = agent.act(state_vector)
