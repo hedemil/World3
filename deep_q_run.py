@@ -137,7 +137,7 @@ state_size = 6  # For example: population, life expectancy, food ratio
 action_size = len(action_combinations)  # Assume 5 possible actions for simplicity
 agent = DQNAgent(state_size, action_size)
 # Load previously saved model weights
-agent.load("your_model.weights.h5")
+agent.load("final_model_weights.h5")
 year_step = 5
 year_max = 2200
 year_start = 2000

@@ -13,7 +13,7 @@ alpha = 0.3  # Learning rate
 gamma = 0.95  # Discount factor
 epsilon = 0.2  # Exploration rate
 actions = [0.9, 0.95, 1.0, 1.05, 1.1]  # Action space
-control_signals = ['pptd', 'fioas', 'alai']
+control_signals = ['lmhs', 'fioas', 'alai']
 num_states = 27
 num_actions = len(actions)
 num_control_signals = len(control_signals)
@@ -50,7 +50,6 @@ def get_state(pop, le, fr):
     pop_index = discretize_pop(pop)
     le_index = discretize_le(le)
     fr_index = discretize_fr(fr)
-    # Assuming 5 bins for population, 3 for ahl, and 3 for io
     num_le_bins = 3
     num_fr_bins = 3
     # Calculate a unique state index
@@ -119,7 +118,7 @@ def update_control(control_signals_actions, prev_control):
 
 # Simulation loop
 # Initial setup for the World3 model
-learning_episodes = 500  # Adjust based on how many times you want to run the simulation
+learning_episodes = 500  
 exploraion_episode = 50
 initial_year = 2000
 final_year = 2100
@@ -208,17 +207,16 @@ plot_world_variables(
 )
 
 # Initialize a position for the first annotation
-x_pos = 0.05  # Adjust as needed
-y_pos = 0.95  # Start from the top, adjust as needed
-vertical_offset = 0.05  # Adjust the space between lines
+x_pos = 0.05  
+y_pos = 0.95  
+vertical_offset = 0.05  
 
-# Use plt.gcf() to get the current figure and then get the current axes with gca()
+
 ax = plt.gcf().gca()
 
 for var, label in zip(variables, labels):
     max_value = np.max(var)
-    # Place text annotation within the plot, using figure's coordinate system
     ax.text(x_pos, y_pos, f'{label} Max: {max_value:.2f}', transform=ax.transAxes,
             verticalalignment='top', horizontalalignment='left')
-    y_pos -= vertical_offset  # Move up for the next line
+    y_pos -= vertical_offset  
 plt.show()

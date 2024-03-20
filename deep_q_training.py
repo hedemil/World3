@@ -17,7 +17,7 @@ params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
 
 actions = [0.9, 0.95, 1.0, 1.05, 1.1]  # Action space
-control_signals = ['alai']
+control_signals = ['alai', 'lyf']
 
 """ control_signals = ['alai', 'lyf', 'ifpc', 'lymap', 'llmy', 'fioaa', 
                    'icor', 'scor', 'alic', 'alsc', 'fioac', 'isopc', 
@@ -29,6 +29,9 @@ num_control_signals = len(control_signals)
 
 # Generate all combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
+
+def discretize_year(time):
+    return (time - 2000)//10 + 1
 
 
 # States for optimizing hsapc
@@ -69,7 +72,7 @@ def discretize_ehspc(ehspc):
     else: return 3
 
 
-def get_state_vector(p1, p2, p3, p4, hsapc, ehspc):
+def get_state_vector(p1, p2, p3, p4, hsapc, ehspc, time):
     p1_index = discretize_p1(p1)
     p2_index = discretize_p2(p2)
     p3_index = discretize_p3(p3)
@@ -77,10 +80,12 @@ def get_state_vector(p1, p2, p3, p4, hsapc, ehspc):
 
     hsapc_index = discretize_hsapc(hsapc)
     ehspc_index = discretize_ehspc(ehspc)
+
+    time_index = discretize_year(time)
     # Return a numpy array with the state represented as a vector
     # return np.array([p1_index, hsapc_index, ehspc_index]).reshape(1, -1)
 
-    return np.array([p1_index, p2_index, p3_index, p4_index, hsapc_index, ehspc_index]).reshape(1, -1)
+    return np.array([p1_index, p2_index, p3_index, p4_index, hsapc_index, ehspc_index, time_index]).reshape(1, -1)
 
 # Reward calculation
 def calculate_reward(current_world):
@@ -165,11 +170,12 @@ def simulate_step(year, prev_data, action_combination_index, control_signals):
     current_p3 = world3_current.p3[-1]
     current_p4 = world3_current.p4[-1]
     current_hsapc = world3_current.hsapc[-1]
-    current_ehspc = world3_current.ehspc[-1]  
+    current_ehspc = world3_current.ehspc[-1]
+    current_time = world3_current.time[-1]  
     
     # Calculate next state
     # next_state = get_state_vector(current_p1, current_hsapc, current_ehspc)
-    next_state = get_state_vector(current_p1, current_p2, current_p3, current_p4, current_hsapc, current_ehspc)
+    next_state = get_state_vector(current_p1, current_p2, current_p3, current_p4, current_hsapc, current_ehspc, current_time)
     
     # Calculate reward (this function needs to be defined based on your criteria)
     reward = calculate_reward(world3_current)
@@ -184,7 +190,7 @@ def simulate_step(year, prev_data, action_combination_index, control_signals):
 state_size = 6  # For example: population, life expectancy, food ratio
 action_size = len(action_combinations)  
 agent = DQNAgent(state_size, action_size)
-episodes = 10
+episodes = 1000
 batch_size = 32
 year_step = 5
 year_max = 2200
@@ -202,8 +208,9 @@ for e in range(episodes):
     current_p4 = prev_data['init_vars']['population']['p4'][-1]
     current_hsapc = prev_data['init_vars']['population']['hsapc'][-1]
     current_ehspc = prev_data['init_vars']['population']['ehspc'][-1]
+    current_time = prev_data['world_props']['time'][-1]
     # state = get_state_vector(current_p1, current_hsapc, current_ehspc)
-    state = get_state_vector(current_p1, current_p2, current_p3, current_p4, current_hsapc, current_ehspc)
+    state = get_state_vector(current_p1, current_p2, current_p3, current_p4, current_hsapc, current_ehspc, current_time)
     for year in range(year_start, year_max + 1, year_step): 
         action = agent.act(state)
         prev_data_ep, next_state, reward, done = simulate_step(year, prev_data if year == year_start else prev_data_ep, action, control_signals)
@@ -213,5 +220,14 @@ for e in range(episodes):
             break
     if len(agent.memory) > batch_size:
         agent.replay(batch_size)
+
+    # Update the target network at the end of each episode
+    agent.update_target_model()
+    
+    # Print out progress and save the model at intervals
+    if (e + 1) % 100 == 0:  
+        print(f"Episode: {e + 1}/{episodes}")
+        agent.save(f"model_weights_episode_{e+1}.h5")
+
+agent.save("final_model_weights.h5")
         
-agent.save("your_model.weights.h5")
