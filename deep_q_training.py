@@ -16,13 +16,13 @@ from pyworld3.utils import plot_world_variables
 params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
 
-actions = [0.9, 0.95, 1.0, 1.05, 1.1]  # Action space
+actions = [0.9, 1.0, 1.1]  # Action space
 control_signals = ['alai', 'lyf']
 
 """ control_signals = ['alai', 'lyf', 'ifpc', 'lymap', 'llmy', 'fioaa', 
                    'icor', 'scor', 'alic', 'alsc', 'fioac', 'isopc', 
                    'fioas', 'ppgf', 'pptd', 'nruf', 'fcaor'] """
-num_states = 4096
+num_states = 81920
 num_actions = len(actions)
 num_control_signals = len(control_signals)
 
@@ -187,10 +187,10 @@ def simulate_step(year, prev_data, action_combination_index, control_signals):
     return prev_data, next_state, reward, done
 
 # Define the environment / simulation parameters
-state_size = 6  # For example: population, life expectancy, food ratio
+state_size = 7  # For example: population, life expectancy, food ratio
 action_size = len(action_combinations)  
 agent = DQNAgent(state_size, action_size)
-episodes = 1000
+episodes = 1
 batch_size = 32
 year_step = 5
 year_max = 2200
@@ -227,7 +227,7 @@ for e in range(episodes):
     # Print out progress and save the model at intervals
     if (e + 1) % 100 == 0:  
         print(f"Episode: {e + 1}/{episodes}")
-        agent.save(f"model_weights_episode_{e+1}.h5")
+        agent.save(f"model_weights_episode_{e+1}.weights.h5")
 
-agent.save("final_model_weights.h5")
+agent.save("final_model.weights.h5")
         
