@@ -16,17 +16,23 @@ from pyworld3.utils import plot_world_variables
 params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
 
-actions = [0.9, 0.95, 1.0, 1.05, 1.1]  # Action space
-control_signals = ['alai', 'lyf', 'ifpc', 'lymap', 'llmy', 'fioaa', 
+actions = [0.9, 1.0, 1.1]  # Action space
+control_signals = ['alai', 'lyf']
+
+""" control_signals = ['alai', 'lyf', 'ifpc', 'lymap', 'llmy', 'fioaa', 
                    'icor', 'scor', 'alic', 'alsc', 'fioac', 'isopc', 
-                   'fioas', 'ppgf', 'pptd', 'nruf', 'fcaor']
-num_states = 4096
+                   'fioas', 'ppgf', 'pptd', 'nruf', 'fcaor'] """
+num_states = 81920
 num_actions = len(actions)
 num_control_signals = len(control_signals)
 
 
 # Generate all combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
+
+def discretize_year(time):
+    return (time - 2000)//10 + 1
+
 
 # States for optimizing hsapc
 def discretize_p1(p1):
@@ -66,17 +72,20 @@ def discretize_ehspc(ehspc):
     else: return 3
 
 
-def get_state_vector(p1, p2, p3, p4, hsapc, ehspc):
+def get_state_vector(p1, p2, p3, p4, hsapc, ehspc, time):
     p1_index = discretize_p1(p1)
-    p2_index = discretize_p1(p2)
-    p3_index = discretize_p1(p3)
-    p4_index = discretize_p1(p4)
+    p2_index = discretize_p2(p2)
+    p3_index = discretize_p3(p3)
+    p4_index = discretize_p4(p4)
 
     hsapc_index = discretize_hsapc(hsapc)
     ehspc_index = discretize_ehspc(ehspc)
-    # Return a numpy array with the state represented as a vector
-    return np.array([p1_index, p2_index, p3_index, p4_index, hsapc_index, ehspc_index]).reshape(1, -1)
 
+    time_index = discretize_year(time)
+    # Return a numpy array with the state represented as a vector
+    # return np.array([p1_index, hsapc_index, ehspc_index]).reshape(1, -1)
+
+    return np.array([p1_index, p2_index, p3_index, p4_index, hsapc_index, ehspc_index, time_index]).reshape(1, -1)
 
 # Reward calculation
 def calculate_reward(current_world):
@@ -133,7 +142,7 @@ def update_control(control_signals_actions, prev_control):
     return prev_control
 
 # Define the environment / simulation parameters
-state_size = 6  # For example: population, life expectancy, food ratio
+state_size = 7  # For example: population, life expectancy, food ratio
 action_size = len(action_combinations)  # Assume 5 possible actions for simplicity
 agent = DQNAgent(state_size, action_size)
 # Load previously saved model weights
@@ -153,7 +162,8 @@ for year in range(year_start, year_max + 1, year_step):
     current_p4 = prev_data_optimal['init_vars']['population']['p4'][-1]
     current_hsapc = prev_data_optimal['init_vars']['population']['hsapc'][-1]
     current_ehspc = prev_data_optimal['init_vars']['population']['ehspc'][-1]
-    state_vector = get_state_vector(current_p1, current_p2, current_p3, current_p4, current_hsapc, current_ehspc)
+    current_time = prev_data_optimal['world_props']['time'][-1]
+    state_vector = get_state_vector(current_p1, current_p2, current_p3, current_p4, current_hsapc, current_ehspc, current_time)
     
     # Use the DQN model to find the optimal action
     action_index = agent.act(state_vector)
@@ -180,7 +190,7 @@ plot_world_variables(
     labels,
         [[0, 100], [0, 4], [0, 6e12],  [0, 10e9]],
     figsize=(10, 7),
-    title="World3 Simulation from 1900 to 2100, optimal policy"
+    title="World3 Simulation from 1900 to 2200, optimal policy"
 )
 
 # Initialize a position for the first annotation

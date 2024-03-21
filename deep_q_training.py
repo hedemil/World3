@@ -90,9 +90,8 @@ def get_state_vector(p1, p2, p3, p4, hsapc, ehspc, time):
 # Reward calculation
 def calculate_reward(current_world):
     reward = 0
-    if current_world.cbr[-1] / current_world.cdr[-1] < 0.9:
-        reward += 0
-    elif current_world.cbr[-1] / current_world.cdr[-1] <= 1.1:
+    birth_death = current_world.cbr[-1] / current_world.cdr[-1]
+    if  0.9 <= birth_death <= 1.1:
         reward += 100
     else:
         reward += 0
