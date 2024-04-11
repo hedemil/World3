@@ -36,6 +36,10 @@ import numpy as np
 from scipy.integrate import odeint
 
 
+np.seterr(all='raise')
+np.seterr(under='ignore')
+
+
 def switch(var1, var2, boolean_switch):
     """
     Logical function returning var1 if boolean_switch is False, else var2.
@@ -179,6 +183,7 @@ class Smooth:
                 dout = self.in_arr[k - 1] - self.out_arr[k - 1]
                 dout *= self.dt / delay
                 self.out_arr[k] = self.out_arr[k - 1] + dout
+               
 
         return self.out_arr[k]
 

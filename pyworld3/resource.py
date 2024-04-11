@@ -344,6 +344,8 @@ class Resource:
         From step k requires: NRFR
         """
         self.fcaor[k] = self.fcaor_control * self.fcaor_f(self.nrfr[k])
+        
+        
 
     @requires(["nruf"])
     def _update_nruf(self, k):

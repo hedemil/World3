@@ -17,11 +17,40 @@ def calculate_reward(current_world):
     reward = 0
     birth_death = current_world.cbr[-1] / current_world.cdr[-1]
     if  0.9 <= birth_death <= 1.1:
-        reward += 100
-    else:
-        reward += 0
-    reward += 0 if current_world.le[-1] < 55 else 100
-    reward += 0 if current_world.hsapc[-1] < 50 else 100
-    reward -= 10000 if current_world.pop[-1] < 6e9 or current_world.pop[-1] > 8e9 else 0
-    reward -= 100000 if current_world.nrfr[-1] < 0.5 else 0 # World collapses if nrfr goes below 0.5, see Will Thissen
+        reward += 10
+    if birth_death < 0.75:
+        reward -= 1000
+
+    # if the life expectancy is increasing
+    if current_world.le[-1]/current_world.le[-2] > 1:
+        reward += 10
+
+    # World collapses if nrfr goes below 0.5, see Will Thissen
+    reward -= 100000 if current_world.nrfr[-1] < 0.5 else 0 
+
+    # if healt service allocation and effective health care is increasing
+    if current_world.hsapc[-1]/current_world.hsapc[-2] > 1:
+        reward += 10
+    if current_world.ehspc[-1]/current_world.ehspc[-2] > 1:
+        reward += 10
+
+    # if the mortality rate is decreasing
+    if current_world.m1[-1]/current_world.m1[-2] < 1:
+        reward += 10
+    if current_world.m1[-1]/current_world.m1[-2] > 1.25:
+        reward -= 1000
+
+    if current_world.m2[-1]/current_world.m2[-2] < 1:
+        reward += 100 
+    if current_world.m2[-1]/current_world.m2[-2] > 1.25:
+        reward -= 1000
+    
+
     return reward
+
+
+# Actions and control signals setup
+actions = [0.5, 1, 1.5]  # Action space
+control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas'] 
+
+episodes = 10

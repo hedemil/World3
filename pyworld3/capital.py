@@ -545,6 +545,10 @@ class Capital:
         From step k requires: IC FCAOR CUF ICOR
         """
         self.io[k] = self.ic[k] * (1 - self.fcaor[k]) * self.cuf[k] / self.icor[k]
+        if np.isnan(self.io[k]):
+            x = 0
+
+        
 
     @requires(["iopc"], ["io", "pop"])
     def _update_iopc(self, k):

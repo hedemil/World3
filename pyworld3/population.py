@@ -769,6 +769,8 @@ class Population:
         From step k requires: LMF LMHS LMP LMC
         """
         self.le[k] = self.len * self.lmf[k] * self.lmhs[k] * self.lmp[k] * self.lmc[k]
+        if self.le[k] == 0:
+            x = 0
 
     @requires(["mat1"], ["p1", "m1"])
     def _update_mat1(self, k, kl):

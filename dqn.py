@@ -20,7 +20,7 @@ class DQNAgent:
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.learning_rate = learning_rate
-        self.verbose = verbose
+        self.verbose = 0
         self.model = self._build_model()
         self.target_model = self._build_model()
         self.update_target_model()

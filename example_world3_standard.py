@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import numpy as np
 import matplotlib.pyplot as plt
 
 from pyworld3 import World3
@@ -8,7 +8,7 @@ from pyworld3.utils import plot_world_variables
 params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
 
-world3 = World3(year_max=2100)
+world3 = World3(year_max=2200)
 world3.set_world3_control()
 world3.init_world3_constants()
 world3.init_world3_variables()
@@ -16,15 +16,33 @@ world3.set_world3_table_functions()
 world3.set_world3_delay_functions()
 world3.run_world3(fast=False)
 
+variables = [world3.le, world3.pop, world3.ppolx, world3.iopc/world3.nruf]
+
+labels = ["LE", "POP", "PPOLX", "IOPC/NRUF"]
+
 # Plot the combined results
 plot_world_variables(
     world3.time,
-    [world3.le, world3.fr, world3.pop, world3.ppolx],
-    ["LE", "FR", "POP", "PPOLX"],
-    [[0, 90], [0, 5], [0, 10e9], [0, 20]],
+    variables,
+    labels,
+    [[0, 90], [0, 10e9], [0, 20], [0, 1.5*max(world3.iopc/world3.nruf)]],
     figsize=(10, 7),
-    title="World3 Simulation from 1900 to 2100, standard"
+    title="World3 Simulation from 1900 to 2200, standard"
 )
+# Initialize a position for the first annotation
+x_pos = 0.05  # Adjust as needed
+y_pos = 0.95  # Start from the top, adjust as needed
+vertical_offset = 0.05  # Adjust the space between lines
+
+# Use plt.gcf() to get the current figure and then get the current axes with gca()
+ax = plt.gcf().gca()
+
+for var, label in zip(variables, labels):
+    max_value = np.max(var)
+    # Place text annotation within the plot, using figure's coordinate system
+    ax.text(x_pos, y_pos, f'{label} Max: {max_value:.2f}', transform=ax.transAxes,
+            verticalalignment='top', horizontalalignment='left')
+    y_pos -= vertical_offset  # Move up for the next line
 plt.show()
 
 # plot_world_variables(

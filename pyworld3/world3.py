@@ -496,9 +496,50 @@ class World3(Population, Capital, Agriculture, Pollution, Resource):
             'lmhs_control' : self.lmhs_control,
             'nruf_control' : self.nruf_control,
             'fcaor_control' : self.fcaor_control,
+            'initial_value' :{
+                'alai_control': 2,
+                'lyf_control' : 1,
+                'ifpc_control' : 1,
+                'lymap_control' : 1,
+                'llmy_control' : 1,
+                'fioaa_control' : 1,
+                'icor_control' : 3,
+                'scor_control' : 1,
+                'alic_control' : 14,
+                'alsc_control' : 20,
+                'fioac_control' : 0.43,
+                'isopc_control' : 1,
+                'fioas_control' : 1,
+                'ppgf_control' : 1,
+                'pptd_control' : 20,
+                'lmhs_control' : 1,
+                'nruf_control' : 1,
+                'fcaor_control' : 1,   
+            }
         }
-
     }
+
+    def get_intital_control(self):
+        return {
+            'ifpc_control': self.ifpc_control,
+            'fioaa_control' : self.fioaa_control,
+            'alai_control' : self.alai_control,
+            'lyf_control': self.lyf_control,
+            'lymap_control' : self.lymap_control,
+            'llmy_control' : self.llmy_control,
+            'icor_control' : self.icor_control,
+            'scor_control' : self.scor_control,
+            'alic_control' : self.alic_control,
+            'alsc_control' : self.alsc_control,
+            'fioac_control' : self.fioac_control,
+            'isopc_control' : self.isopc_control,
+            'fioas_control' : self.fioas_control,
+            'ppgf_control' : self.ppgf_control,
+            'pptd_control' : self.pptd_control,
+            'lmhs_control' : self.lmhs_control,
+            'nruf_control' : self.nruf_control,
+            'fcaor_control' : self.fcaor_control,
+        }
 
     def _run_world3(self, k_index=1):
         """

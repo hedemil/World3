@@ -617,6 +617,8 @@ class Agriculture:
         From step k requires: LY AL
         """
         self.f[k] = self.ly[k] * self.al[k] * self.lfh * (1 - self.pl)
+        
+        
 
     @requires(["fpc"], ["f", "pop"])
     def _update_fpc(self, k):
@@ -624,6 +626,8 @@ class Agriculture:
         From step k requires: F POP
         """
         self.fpc[k] = self.f[k] / self.pop[k]
+        
+
 
     @requires(["ifpc"], ["iopc"])
     def _update_ifpc(self, k):
@@ -704,6 +708,7 @@ class Agriculture:
         From step k requires: LYF LFERT LYMC LYMAP
         """
         self.ly[k] = self.lyf[k] * self.lfert[k] * self.lymc[k] * self.lymap[k]
+        
 
     @requires(["lyf"])
     def _update_lyf(self, k):
@@ -720,6 +725,7 @@ class Agriculture:
         self.lymap[k] = self.lymap_control * self.lymap_f(
             self.io[k] / self.io70
         )
+        
 
     @requires(["fiald"], ["mpld", "mpai"])
     def _update_fiald(self, k):

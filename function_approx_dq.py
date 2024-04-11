@@ -13,8 +13,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.get_logger().setLevel('ERROR')
 
 # Actions and control signals setup
-actions = [0.9, 1.0, 1.1]  # Action space
-control_signals = ['alai', 'lyf']  # Simplified for example purposes
+actions = [0.8, 0.9, 1, 1.1, 1.2]  # Action space
+control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas'] 
+
 
 # Generate all action combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
@@ -23,7 +24,7 @@ action_combinations = list(itertools.product(actions, repeat=len(control_signals
 state_size = 7  # Number of components in the state vector
 action_size = len(action_combinations)
 agent = DQNAgent(state_size, action_size)
-episodes = 100
+episodes = 10
 batch_size = 32
 year_step = 5
 year_max = 2200
@@ -48,6 +49,7 @@ def run_world3_simulation(year_min, year_max, dt=1, prev_run_data=None, ordinary
         world3.init_world3_variables(prev_run_data["init_vars"])
         world3.set_world3_table_functions()
         world3.set_world3_delay_functions(prev_delay=prev_run_data["delay_funcs"])
+        k_index = prev_run_prop['k']
     else:
         world3.set_world3_control()
         world3.init_world3_constants()
@@ -67,7 +69,7 @@ def update_control(control_signals_actions, prev_control):
     :return: Updated control signals dictionary
     """
     for control_signal, action_value in control_signals_actions:
-        prev_control[control_signal + '_control'] *= action_value
+        prev_control[control_signal + '_control'] = action_value*prev_control['initial_value'][control_signal + '_control']
     return prev_control
 
 def simulate_step(year, prev_data, action_combination_index, control_signals):
@@ -87,6 +89,7 @@ def simulate_step(year, prev_data, action_combination_index, control_signals):
     # Update control signals based on the selected action
     control_variables_actions = list(zip(control_signals, selected_action_combination))
     prev_data['control_signals'] = update_control(control_variables_actions, prev_data['control_signals'])
+
     
     # Run the World3 model for the next step
     next_year = year + year_step
@@ -114,10 +117,14 @@ def simulate_step(year, prev_data, action_combination_index, control_signals):
     
     return prev_data, next_state, reward, done
 
+# Paths for saving models
+save_path = "/content/drive/My Drive/Colab Notebooks/"
+
+
 # Simulation loop
 for e in range(episodes):
     # Initialize start values for simulation
-    prev_data, world3_start = run_world3_simulation(year_min=1900, year_max=2000)
+    prev_data, world3_start= run_world3_simulation(year_min=1900, year_max=2000)
 
     # Initial state
     current_state = normalize_state(prev_data['init_vars']['population']['p1'][-1],
@@ -145,6 +152,6 @@ for e in range(episodes):
 
     if (e + 1) % 100 == 0:
         print(f"Episode: {e + 1}/{episodes}")
-        agent.save(f"model_weights_episode_{e+1}.h5")
+        agent.save(f"{save_path}model_weights_episode_{e+1}.h5")
 
-agent.save("final_model.weights.h5")
+agent.save(f"{save_path}final_model.weights.h5")
