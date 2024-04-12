@@ -18,8 +18,8 @@ params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
 
 # Actions and control signals setup
-actions = [0.5, 1, 1.5]  # Action space
-control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas']
+actions = [0.8, 1, 1.2]  # Action space
+control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas', 'nruf', 'fcaor']
 
 # Generate all action combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
