@@ -179,7 +179,7 @@ try:
         episode_durations.append(duration)
         print(f"Episode {e+1} completed in {duration:.2f} seconds.")
 
-        if (e + 1) % 1 == 0:
+        if (e + 1) % 100 == 0:
             print(f"Episode: {e + 1}/{episodes}")
             #agent.save(f"{save_path}model_weights_episode_{e+1}.h5")
             try:
