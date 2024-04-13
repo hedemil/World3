@@ -11,7 +11,7 @@ import itertools
 
 from pyworld3 import World3, world3
 from pyworld3.utils import plot_world_variables
-from state_reward import normalize_state
+from state_reward import StateNormalizer
 
 
 params = {"lines.linewidth": "3"}
@@ -19,25 +19,27 @@ plt.rcParams.update(params)
 
 # Actions and control signals setup
 actions = [0.8, 1, 1.2]  # Action space
-control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas', 'nruf', 'fcaor']
+control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas', 'nruf', 'fcaor'] # Add nruf, and fcaor next run.
+
 
 # Generate all action combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
 
-
 # Define the environment/simulation parameters
 state_size = 7  # Number of components in the state vector
 action_size = len(action_combinations)
-agent = DQNAgent(state_size, action_size)
+agent = DQNAgent(state_size, action_size, model_path='final_model.keras')
 episodes = 10
 batch_size = 32
 year_step = 5
 year_max = 2200
 year_start = 2000
 
-model_path = 'final_model.weights.h5'
-agent.load(model_path)
+# model_path = 'final_model.weights.h5'
+# agent.load(model_path)
 
+# Create an instance of the StateNormalizer
+state_normalizer = StateNormalizer()
 
 
 def run_world3_simulation(year_min, year_max, dt=1, prev_run_data=None, ordinary_run=True, k_index=1):
@@ -82,18 +84,50 @@ def update_control(control_signals_actions, prev_control):
     return prev_control
 
 
-prev_data_optimal, world3_frst = run_world3_simulation(year_min=1900, year_max=2000)
+prev_data_state, world3_frst = run_world3_simulation(year_min=1900, year_max=2000)
 
+for year in range(year_start, year_max + 1, year_step):
+    # Initial state normalization
+    raw_state = {
+        'p1': prev_data_state['init_vars']['population']['p1'][-1],
+        'p2': prev_data_state['init_vars']['population']['p2'][-1],
+        'p3': prev_data_state['init_vars']['population']['p3'][-1],
+        'p4': prev_data_state['init_vars']['population']['p4'][-1],
+        'hsapc': prev_data_state['init_vars']['population']['hsapc'][-1],
+        'ehspc': prev_data_state['init_vars']['population']['ehspc'][-1],
+        'time': prev_data_state['world_props']['time'][-1],
+    }
+
+    state_normalizer.update_stats(state=raw_state)
+    # Run the simulation for the next time step using the updated control signals
+    prev_data_state, world3_state = run_world3_simulation(year_min=year, year_max=year + 5, prev_run_data=prev_data_state, ordinary_run=False)
+
+prev_data_optimal, world3_frst = run_world3_simulation(year_min=1900, year_max=2000)
 
 for year in range(year_start, year_max + 1, year_step):
     # Get the current state in vector form
-    current_state = normalize_state(prev_data_optimal['init_vars']['population']['p1'][-1],
-                                     prev_data_optimal['init_vars']['population']['p2'][-1],
-                                     prev_data_optimal['init_vars']['population']['p3'][-1],
-                                     prev_data_optimal['init_vars']['population']['p4'][-1],
-                                     prev_data_optimal['init_vars']['population']['hsapc'][-1],
-                                     prev_data_optimal['init_vars']['population']['ehspc'][-1],
-                                     prev_data_optimal['world_props']['time'][-1])
+    # current_state = normalize_state(prev_data_optimal['init_vars']['population']['p1'][-1],
+    #                                  prev_data_optimal['init_vars']['population']['p2'][-1],
+    #                                  prev_data_optimal['init_vars']['population']['p3'][-1],
+    #                                  prev_data_optimal['init_vars']['population']['p4'][-1],
+    #                                  prev_data_optimal['init_vars']['population']['hsapc'][-1],
+    #                                  prev_data_optimal['init_vars']['population']['ehspc'][-1],
+    #                                  prev_data_optimal['world_props']['time'][-1])
+
+    # Initial state normalization
+    raw_state = {
+        'p1': prev_data_optimal['init_vars']['population']['p1'][-1],
+        'p2': prev_data_optimal['init_vars']['population']['p2'][-1],
+        'p3': prev_data_optimal['init_vars']['population']['p3'][-1],
+        'p4': prev_data_optimal['init_vars']['population']['p4'][-1],
+        'hsapc': prev_data_optimal['init_vars']['population']['hsapc'][-1],
+        'ehspc': prev_data_optimal['init_vars']['population']['ehspc'][-1],
+        'time': prev_data_optimal['world_props']['time'][-1],
+    }
+
+    state_normalizer.update_stats(state=raw_state)
+    normalized_state = state_normalizer.normalize_state(state=raw_state)
+    current_state = np.array(list(normalized_state.values())).reshape(1, -1)
     
     # Use the DQN model to find the optimal action
     action_index = agent.act(current_state)
@@ -111,15 +145,15 @@ for year in range(year_start, year_max + 1, year_step):
     prev_data_optimal, world3_optimal = run_world3_simulation(year_min=year, year_max=year + 5, prev_run_data=prev_data_optimal, ordinary_run=False)
 
     
-variables = [world3_optimal.le, world3_optimal.fr, world3_optimal.sc, world3_optimal.pop]
-labels = ["LE", "FR", "SC", "POP"]
+variables = [world3_optimal.m1, world3_optimal.m2, world3_optimal.hsapc, world3_optimal.ehspc]
+labels = ["M1", "M2", "HSAPC", "EHSPC"]
 
 # Plot the combined results
 plot_world_variables(
     world3_optimal.time,
     variables,
     labels,
-        [[0, 100], [0, 4], [0, 6e12],  [0, 10e9]],
+        [[0, 1.5*max(world3_optimal.m1)], [0, 1.5*max(world3_optimal.m2)], [0, 1.5*max(world3_optimal.hsapc)],  [0, 1.5*max(world3_optimal.ehspc)]],
     figsize=(10, 7),
     title="World3 Simulation from 1900 to 2200, optimal policy"
 )

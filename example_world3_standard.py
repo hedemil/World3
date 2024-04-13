@@ -16,16 +16,15 @@ world3.set_world3_table_functions()
 world3.set_world3_delay_functions()
 world3.run_world3(fast=False)
 
-variables = [world3.le, world3.pop, world3.ppolx, world3.iopc/world3.nruf]
-
-labels = ["LE", "POP", "PPOLX", "IOPC/NRUF"]
+variables = [world3.m1, world3.m2, world3.hsapc, world3.ehspc]
+labels = ["M1", "M2", "HSAPC", "EHSPC"]
 
 # Plot the combined results
 plot_world_variables(
     world3.time,
     variables,
     labels,
-    [[0, 90], [0, 10e9], [0, 20], [0, 1.5*max(world3.iopc/world3.nruf)]],
+        [[0, 1.5*max(world3.m1)], [0, 1.5*max(world3.m2)], [0, 1.5*max(world3.hsapc)],  [0, 1.5*max(world3.ehspc)]],
     figsize=(10, 7),
     title="World3 Simulation from 1900 to 2200, standard"
 )
