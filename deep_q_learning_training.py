@@ -25,7 +25,7 @@ action_combinations = list(itertools.product(actions, repeat=len(control_signals
 state_size = 7  # Number of components in the state vector
 action_size = len(action_combinations)
 agent = DQNAgent(state_size, action_size)
-episodes = 100
+episodes = 1
 batch_size = 32
 year_step = 5
 year_max = 2200
@@ -205,8 +205,8 @@ try:
             except ValueError as ve:
                 print(f"Model prediction or memory operation failed: {ve}")
             except Exception as ex:
-                print(f"An error occurred during the simulation step {e}: {ex}") # Got error after 70 ish episodes...?
-                continue  # Depending on the case, you might want to skip or break
+                print(f"An error occurred during the simulation step {e}: {ex}") 
+                continue  
             current_state = next_state
             
             if done:

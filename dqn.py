@@ -39,13 +39,6 @@ class DQNAgent:
         """Copy weights from model to target_model."""
         self.target_model.set_weights(self.model.get_weights())
 
-    # def remember(self, state, action, reward, next_state, done):
-    #     """Store experiences in replay memory."""
-    #     try:
-    #         # Ensure states are 2D arrays when remembered
-    #         self.memory.append((np.array(state).reshape(1, -1), action, reward, np.array(next_state).reshape(1, -1), done))
-    #     except Exception as ex:
-    #         print(f"An exception occurred during agent remember: {ex}")
     
     # With StateNormalizer
     def remember(self, state, action, reward, next_state, done):
@@ -69,28 +62,6 @@ class DQNAgent:
             # Handle the exception, for example by taking a random action
             return random.randrange(self.action_size)
 
-    
-    # With StateNormalizer    
-    # def replay(self, batch_size):
-    #     """Train the model using randomly sampled experiences from the memory."""
-    #     if len(self.memory) < batch_size:
-    #         return
-    #     try:
-    #         minibatch = random.sample(self.memory, batch_size)
-    #         for state, action, reward, next_state, done in minibatch:
-    #             next_state = np.array(next_state).reshape(1, -1)  # Ensure next_state is a 2D array
-    #             target = reward if done else reward + self.gamma * np.amax(self.target_model.predict(next_state)[0])
-    #             state = np.array(state).reshape(1, -1)  # Ensure state is a 2D array
-    #             target_f = self.model.predict(state)
-    #             target_f[0][action] = target
-    #             self.model.fit(state, target_f, epochs=1, verbose=0, batch_size=1)
-    #     except Exception as ex:
-    #         print(f"An exception occurred during replay: {ex}")
-    #         # Decide on how to handle the exception. For example, you could skip this round of training or take some corrective action.
-
-    #     if self.epsilon > self.epsilon_min:
-    #         self.epsilon *= self.epsilon_decay
-
     def replay(self, batch_size):
         """Train the model using randomly sampled experiences from the memory."""
         if len(self.memory) < batch_size:
@@ -100,7 +71,7 @@ class DQNAgent:
             for state, action, reward, next_state, done in minibatch:
                 # Here states should already be in the correct shape and type
                 target = reward if done else reward + self.gamma * np.amax(self.target_model.predict(next_state, verbose=0)[0])
-                target_f = self.model.predict(state, verbose=0) #test if verbose removes pringting bars, else remove...
+                target_f = self.model.predict(state, verbose=0) 
                 target_f[0][action] = target
                 self.model.fit(state, target_f, epochs=1, verbose=0, batch_size=1)
         except Exception as ex:
@@ -110,22 +81,6 @@ class DQNAgent:
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
-
-    # def load(self, path_to_weights):
-    #     """Load saved model weights."""
-    #     try:
-    #         self.model.load_weights(path_to_weights)
-    #     except Exception as ex:
-    #         print(f"An exception occurred loading weights: {ex}")
-    #         # Handle the exception, perhaps by initializing the model weights from scratch
-
-    # def save(self, path_to_weights):
-    #     """Save model weights."""
-    #     try:
-    #         self.model.save_weights(path_to_weights)
-    #     except Exception as ex:
-    #         print(f"An exception occurred saving weights: {ex}")
-    #         # Handle the exception, for example, by trying to save to a different location or notifying the user
 
     def load(self, path_to_model):
         """Load saved model."""
