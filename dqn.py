@@ -68,16 +68,38 @@ class DQNAgent:
             return
         try:
             minibatch = random.sample(self.memory, batch_size)
-            for state, action, reward, next_state, done in minibatch:
-                # Here states should already be in the correct shape and type
-                target = reward if done else reward + self.gamma * np.amax(self.target_model.predict(next_state, verbose=0)[0])
-                target_f = self.model.predict(state, verbose=0) 
-                target_f[0][action] = target
-                self.model.fit(state, target_f, epochs=1, verbose=0, batch_size=1)
+            
+            states = np.array([x[0] for x in minibatch])
+            actions = np.array([x[1] for x in minibatch])
+            rewards = np.array([x[2] for x in minibatch])
+            next_states = np.array([x[3] for x in minibatch])
+            dones = np.array([x[4] for x in minibatch])
+
+             # Reshape states and next_states to ensure correct input shape
+            states = states.reshape((batch_size, -1)) 
+            next_states = next_states.reshape((batch_size, -1))  
+
+            # Vectorized operation for target calculation
+            targets = rewards + self.gamma * np.amax(self.target_model.predict(next_states, verbose=0), axis=1) * (~dones)
+            target_f = self.model.predict(states, verbose=0)
+
+            # Batch update the target values
+            target_f[np.arange(batch_size), actions] = targets
+
+            # Single batch training
+            self.model.fit(states, target_f, epochs=1, verbose=0, batch_size=batch_size)
+
+            # for state, action, reward, next_state, done in minibatch:
+            #     # Here states should already be in the correct shape and type
+            #     target = reward if done else reward + self.gamma * np.amax(self.target_model.predict(next_state, verbose=0)[0])
+            #     target_f = self.model.predict(state, verbose=0) 
+            #     target_f[0][action] = target
+            #     self.model.fit(state, target_f, epochs=1, verbose=0, batch_size=1)
         except Exception as ex:
             print(f"An exception occurred during replay: {ex}")
             # Handle the exception appropriately.
 
+    def epsilon_dec(self):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 

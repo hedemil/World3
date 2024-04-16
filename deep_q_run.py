@@ -26,14 +26,14 @@ control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas', 'nruf', 'fcaor'] #
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
 
 # Define the environment/simulation parameters
-state_size = 7  # Number of components in the state vector
+state_size = 6  # Number of components in the state vector
 action_size = len(action_combinations)
 agent = DQNAgent(state_size, action_size, model_path='final_model.keras')
 episodes = 10
 batch_size = 32
 year_step = 5
 year_max = 2200
-year_start = 2000
+year_start = 1970
 
 # model_path = 'final_model.weights.h5'
 # agent.load(model_path)
@@ -84,7 +84,7 @@ def update_control(control_signals_actions, prev_control):
     return prev_control
 
 
-prev_data_state, world3_frst = run_world3_simulation(year_min=1900, year_max=2000)
+prev_data_state, world3_frst = run_world3_simulation(year_min=1900, year_max=year_max)
 
 for year in range(year_start, year_max + 1, year_step):
     # Initial state normalization
@@ -102,7 +102,7 @@ for year in range(year_start, year_max + 1, year_step):
     # Run the simulation for the next time step using the updated control signals
     prev_data_state, world3_state = run_world3_simulation(year_min=year, year_max=year + 5, prev_run_data=prev_data_state, ordinary_run=False)
 
-prev_data_optimal, world3_frst = run_world3_simulation(year_min=1900, year_max=2000)
+prev_data_optimal, world3_frst = run_world3_simulation(year_min=1900, year_max=year_start)
 
 for year in range(year_start, year_max + 1, year_step):
     # Get the current state in vector form

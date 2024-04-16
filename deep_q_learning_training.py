@@ -22,14 +22,14 @@ control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas', 'nruf', 'fcaor'] #
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
 
 # Define the environment/simulation parameters
-state_size = 7  # Number of components in the state vector
+state_size = 6  # Number of components in the state vector
 action_size = len(action_combinations)
 agent = DQNAgent(state_size, action_size)
-episodes = 1
+episodes = 10
 batch_size = 32
 year_step = 5
 year_max = 2200
-year_start = 2000
+year_start = 1905
 
 # Create an instance of the StateNormalizer
 state_normalizer = StateNormalizer()
@@ -118,7 +118,7 @@ def simulate_step(year, prev_data, action_combination_index, control_signals):
         'p4': world3_current.p4[-1],
         'hsapc': world3_current.hsapc[-1],
         'ehspc': world3_current.ehspc[-1],
-        'time': world3_current.time[-1],
+        # 'time': world3_current.time[-1],
     }
 
     # Calculate next state
@@ -153,7 +153,9 @@ save_path = "/content/drive/My Drive/Colab Notebooks/"
 #                                 prev_data['world_props']['time'][-1])
 
 # Create a "state-space" from a normal run
-prev_data_state, world3_frst = run_world3_simulation(year_min=1900, year_max=2000)
+prev_data_state, world3_first = run_world3_simulation(year_min=1900, year_max=year_start)
+
+init_data = prev_data_state
 
 for year in range(year_start, year_max + 1, year_step):
     # Initial state normalization
@@ -164,7 +166,7 @@ for year in range(year_start, year_max + 1, year_step):
         'p4': prev_data_state['init_vars']['population']['p4'][-1],
         'hsapc': prev_data_state['init_vars']['population']['hsapc'][-1],
         'ehspc': prev_data_state['init_vars']['population']['ehspc'][-1],
-        'time': prev_data_state['world_props']['time'][-1],
+        # 'time': prev_data_state['world_props']['time'][-1],
     }
 
     state_normalizer.update_stats(state=raw_state)
@@ -178,7 +180,7 @@ try:
         start_time = time.time()  # Start timing the episode
         # Initialize start values for simulation
         try:
-            prev_data, world3_start = run_world3_simulation(year_min=1900, year_max=2000)
+            prev_data = init_data
         except Exception as ex:
             print(f"Failed to initialize the World3 simulation: {ex}")
 
@@ -190,7 +192,7 @@ try:
             'p4': prev_data['init_vars']['population']['p4'][-1],
             'hsapc': prev_data['init_vars']['population']['hsapc'][-1],
             'ehspc': prev_data['init_vars']['population']['ehspc'][-1],
-            'time': prev_data['world_props']['time'][-1],
+            # 'time': prev_data['world_props']['time'][-1],
         }
         state_normalizer.update_stats(state=raw_state)
         normalized_state = state_normalizer.normalize_state(state=raw_state)
@@ -210,6 +212,7 @@ try:
             current_state = next_state
             
             if done:
+                agent.epsilon_dec()
                 break
 
             if len(agent.memory) > batch_size:
