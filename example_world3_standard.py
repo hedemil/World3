@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 from pyworld3 import World3
 from pyworld3.utils import plot_world_variables
+from state_reward import calculate_derivative
 
 params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
@@ -16,15 +17,20 @@ world3.set_world3_table_functions()
 world3.set_world3_delay_functions()
 world3.run_world3(fast=False)
 
-variables = [world3.m1, world3.m2, world3.hsapc, world3.ehspc]
-labels = ["M1", "M2", "HSAPC", "EHSPC"]
+le_der = calculate_derivative(world3.time, world3.le)
+so_der = calculate_derivative(world3.time, world3.so)
+fpc_der = calculate_derivative(world3.time, world3.fpc)
+pop_der = calculate_derivative(world3.time, world3.pop)
+
+variables = [world3.pop, world3.le, world3.so, world3.io, world3.ai, world3.ppol]
+labels = ["POP", "LE", "SO", "IO", "AI", "PPOL"]
 
 # Plot the combined results
 plot_world_variables(
     world3.time,
     variables,
     labels,
-        [[0, 1.5*max(world3.m1)], [0, 1.5*max(world3.m2)], [0, 1.5*max(world3.hsapc)],  [0, 1.5*max(world3.ehspc)]],
+        [[0, 8e9], [0, 100], [0, 6e12], [0, 3e12], [0, 1.5*max(world3.ai)], [0, 1.5*max(world3.ppol)]],
     figsize=(10, 7),
     title="World3 Simulation from 1900 to 2200, standard"
 )
@@ -38,8 +44,9 @@ ax = plt.gcf().gca()
 
 for var, label in zip(variables, labels):
     max_value = np.max(var)
+    min_value = np.min(var)
     # Place text annotation within the plot, using figure's coordinate system
-    ax.text(x_pos, y_pos, f'{label} Max: {max_value:.2f}', transform=ax.transAxes,
+    ax.text(x_pos, y_pos, f'{label} Max: {max_value:.2f}, Min {min_value:.2f}', transform=ax.transAxes,
             verticalalignment='top', horizontalalignment='left')
     y_pos -= vertical_offset  # Move up for the next line
 plt.show()

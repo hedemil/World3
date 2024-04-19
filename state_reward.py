@@ -36,61 +36,118 @@ class StateNormalizer:
             min_val = self.min_values.get(key, 0)
             max_val = self.max_values.get(key, 1)
             range_val = max_val - min_val if max_val > min_val else 1
-            normalized_state[key] = (value - min_val) / range_val
+            normalized_val = (value - min_val) / range_val
+
+            # Assign the normalized value to a category
+            if normalized_val < 0.25:
+                category = 0  # Represents the range [0, 0.25)
+            elif normalized_val < 0.5:
+                category = 1  # Represents the range [0.25, 0.5)
+            elif normalized_val < 0.75:
+                category = 2  # Represents the range [0.5, 0.75)
+            else:
+                category = 3  # Represents the range [0.75, 1.0]
+
+            normalized_state[key] = category
         return normalized_state
+
+    
 
 # Reward calculation
 def calculate_reward(current_world):
     reward = 0
-    cbr = current_world.cbr[-1]
-    cdr = current_world.cdr[-1]
-    birth_death = current_world.cbr[-1] / current_world.cdr[-1]
-    if  0.9 <= birth_death <= 1.1:
-        reward += 10
-    if birth_death < 0.75:
-        reward -= 1000
+    # io_derivative = calculate_derivative(current_world.time, current_world.io)
+    # io = current_world.io[-1]
+    # so_derivative = calculate_derivative(current_world.time, current_world.so)
 
-    # if the life expectancy is increasing
-    le1 = current_world.le[-1]
-    le2 = current_world.le[-2]
-    if current_world.le[-1]/current_world.le[-2] > 1:
-        reward += 10
+    # if abs(io_derivative[-1]) < 3e10:
+    #     reward += 10
+    # elif abs(io_derivative[-1]) < 2e10:
+    #     reward += 100
+    # else:
+    #     reward -= 1000
 
-    # World collapses if nrfr goes below 0.5, see Will Thissen
-    nrfr = current_world.nrfr[-1]
-    reward -= 100000 if current_world.nrfr[-1] < 0.5 else 0 
+    # if current_world.pop[-1] < 6e9:
+    #     if io < 2e12:
+    #         reward += 1
+    #     elif io < 1.5e12:
+    #         reward += 10
+    #     elif io < 1e12:
+    #         reward += 100
+    # else:
+    #     if abs(so_derivative[-1]) < 4e10:
+    #         reward += 10
+    #     elif abs(so_derivative[-1]) < 2e10:
+    #         reward += 100
+    #     else:
+    #         reward += 0
+    #     if current_world.so[-1] > 3e12:
+    #         reward += 100
+    #     elif current_world.so[-1] > 2e12:
+    #         reward += 10
+    #     else:
+    #         reward -= 1000
+    
+    le_derivative = calculate_derivative(current_world.time, current_world.le)
 
-    # if healt service allocation and effective health care is increasing
-    hsapc1 = current_world.hsapc[-1]
-    hsapc2 = current_world.hsapc[-2]
-    ehspc1 = current_world.ehspc[-1]
-    ehspc2 = current_world.ehspc[-2]
-    if current_world.hsapc[-1]/current_world.hsapc[-2] > 1:
-        reward += 10
-    if current_world.ehspc[-1]/current_world.ehspc[-2] > 1:
-        reward += 10
+    if current_world.le[-1] > 40:
+        if abs(le_derivative[-1]) < 0.2:
+            reward += 100
+        elif abs(le_derivative[-1]) < 0.4:
+            reward += 10
+    else:
+        reward -= 10
+    
+    
 
-    # if the mortality rate is decreasing
-    m11 = current_world.m1[-1]
-    m12 = current_world.m1[-2]
-    if current_world.m1[-1]/current_world.m1[-2] < 1:
-        reward += 10
-    if current_world.m1[-1]/current_world.m1[-2] > 1.25:
-        reward -= 1000
 
-    m21 = current_world.m2[-1]
-    m22 = current_world.m2[-2]
-    if current_world.m2[-1]/current_world.m2[-2] < 1:
-        reward += 100 
-    if current_world.m2[-1]/current_world.m2[-2] > 1.25:
-        reward -= 1000
+    
+    # birth_death = current_world.cbr[-1] / current_world.cdr[-1]
+    # if  0.9 <= birth_death <= 1.1:
+    #     reward += 10
+    # if birth_death < 0.75:
+    #     reward -= 1000
+
+    # # if the life expectancy is increasing
+    # if current_world.le[-1]/current_world.le[-2] > 1:
+    #     reward += 10
+
+    # # World collapses if nrfr goes below 0.5, see Will Thissen
+    # reward -= 100000 if current_world.nrfr[-1] < 0.5 else 0 
+
+    # # if healt service allocation and effective health care is increasing
+    # if current_world.hsapc[-1]/current_world.hsapc[-2] > 1:
+    #     reward += 10
+    # if current_world.ehspc[-1]/current_world.ehspc[-2] > 1:
+    #     reward += 10
+
+    # # if the mortality rate is decreasing
+    # if current_world.m1[-1]/current_world.m1[-2] < 1:
+    #     reward += 10
+    # if current_world.m1[-1]/current_world.m1[-2] > 1.25:
+    #     reward -= 1000
+
+    # if current_world.m2[-1]/current_world.m2[-2] < 1:
+    #     reward += 100 
+    # if current_world.m2[-1]/current_world.m2[-2] > 1.25:
+    #     reward -= 1000
     
 
     return reward
 
+def calculate_derivative(time, values):
+    derivatives = []
+    # Use central difference method for the interior points
+    for i in range(1, len(time) - 1):
+        dy_dx = (values[i + 1] - values[i]) / (time[i + 1] - time[i])
+        derivatives.append(dy_dx)
 
-# Actions and control signals setup
-actions = [0.5, 1, 1.5]  # Action space
-control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas'] 
+    # Use forward difference for the first point
+    dy_dx_first = (values[1] - values[0]) / (time[1] - time[0])
+    derivatives.insert(0, dy_dx_first)
 
-episodes = 10
+    # Use backward difference for the last point
+    dy_dx_last = (values[-1] - values[-2]) / (time[-1] - time[-2])
+    derivatives.append(dy_dx_last)
+
+    return derivatives

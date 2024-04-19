@@ -11,16 +11,15 @@ import itertools
 
 from pyworld3 import World3, world3
 from pyworld3.utils import plot_world_variables
-from state_reward import StateNormalizer
+from state_reward import StateNormalizer, calculate_derivative
 
 
 params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
 
 # Actions and control signals setup
-actions = [0.8, 1, 1.2]  # Action space
-control_signals = ['icor', 'scor', 'fioac', 'isopc', 'fioas', 'nruf', 'fcaor'] # Add nruf, and fcaor next run.
-
+actions = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5]  # Action space
+control_signals = ['icor'] # 'icor', 'scor', 'fioaa', 'fioac', 'fioas', 'nruf', 'fcaor'
 
 # Generate all action combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
@@ -29,6 +28,7 @@ action_combinations = list(itertools.product(actions, repeat=len(control_signals
 state_size = 6  # Number of components in the state vector
 action_size = len(action_combinations)
 agent = DQNAgent(state_size, action_size, model_path='final_model.keras')
+agent.epsilon = 0
 episodes = 10
 batch_size = 32
 year_step = 5
@@ -89,13 +89,12 @@ prev_data_state, world3_frst = run_world3_simulation(year_min=1900, year_max=yea
 for year in range(year_start, year_max + 1, year_step):
     # Initial state normalization
     raw_state = {
-        'p1': prev_data_state['init_vars']['population']['p1'][-1],
-        'p2': prev_data_state['init_vars']['population']['p2'][-1],
-        'p3': prev_data_state['init_vars']['population']['p3'][-1],
-        'p4': prev_data_state['init_vars']['population']['p4'][-1],
-        'hsapc': prev_data_state['init_vars']['population']['hsapc'][-1],
-        'ehspc': prev_data_state['init_vars']['population']['ehspc'][-1],
-        'time': prev_data_state['world_props']['time'][-1],
+        'pop': prev_data_state['init_vars']['population']['pop'][-1],
+        'le': prev_data_state['init_vars']['population']['le'][-1],
+        'so': prev_data_state['init_vars']['capital']['so'][-1],
+        'io': prev_data_state['init_vars']['capital']['io'][-1],
+        'ai': prev_data_state['init_vars']['agriculture']['ai'][-1],
+        'ppol': prev_data_state['init_vars']['pollution']['ppol'][-1]
     }
 
     state_normalizer.update_stats(state=raw_state)
@@ -105,24 +104,15 @@ for year in range(year_start, year_max + 1, year_step):
 prev_data_optimal, world3_frst = run_world3_simulation(year_min=1900, year_max=year_start)
 
 for year in range(year_start, year_max + 1, year_step):
-    # Get the current state in vector form
-    # current_state = normalize_state(prev_data_optimal['init_vars']['population']['p1'][-1],
-    #                                  prev_data_optimal['init_vars']['population']['p2'][-1],
-    #                                  prev_data_optimal['init_vars']['population']['p3'][-1],
-    #                                  prev_data_optimal['init_vars']['population']['p4'][-1],
-    #                                  prev_data_optimal['init_vars']['population']['hsapc'][-1],
-    #                                  prev_data_optimal['init_vars']['population']['ehspc'][-1],
-    #                                  prev_data_optimal['world_props']['time'][-1])
 
     # Initial state normalization
     raw_state = {
-        'p1': prev_data_optimal['init_vars']['population']['p1'][-1],
-        'p2': prev_data_optimal['init_vars']['population']['p2'][-1],
-        'p3': prev_data_optimal['init_vars']['population']['p3'][-1],
-        'p4': prev_data_optimal['init_vars']['population']['p4'][-1],
-        'hsapc': prev_data_optimal['init_vars']['population']['hsapc'][-1],
-        'ehspc': prev_data_optimal['init_vars']['population']['ehspc'][-1],
-        'time': prev_data_optimal['world_props']['time'][-1],
+        'pop': prev_data_optimal['init_vars']['population']['pop'][-1],
+        'le': prev_data_optimal['init_vars']['population']['le'][-1],
+        'so': prev_data_optimal['init_vars']['capital']['so'][-1],
+        'io': prev_data_optimal['init_vars']['capital']['io'][-1],
+        'ai': prev_data_optimal['init_vars']['agriculture']['ai'][-1],
+        'ppol': prev_data_optimal['init_vars']['pollution']['ppol'][-1]
     }
 
     state_normalizer.update_stats(state=raw_state)
@@ -144,20 +134,20 @@ for year in range(year_start, year_max + 1, year_step):
     # Run the simulation for the next time step using the updated control signals
     prev_data_optimal, world3_optimal = run_world3_simulation(year_min=year, year_max=year + 5, prev_run_data=prev_data_optimal, ordinary_run=False)
 
-    
-variables = [world3_optimal.m1, world3_optimal.m2, world3_optimal.hsapc, world3_optimal.ehspc]
-labels = ["M1", "M2", "HSAPC", "EHSPC"]
+
+variables = [world3_optimal.pop, world3_optimal.le, world3_optimal.so, world3_optimal.io, world3_optimal.ai, world3_optimal.ppol]
+labels = ["POP", "LE", "SO", "IO", "AI", "PPOL"]
 
 # Plot the combined results
 plot_world_variables(
     world3_optimal.time,
     variables,
     labels,
-        [[0, 1.5*max(world3_optimal.m1)], [0, 1.5*max(world3_optimal.m2)], [0, 1.5*max(world3_optimal.hsapc)],  [0, 1.5*max(world3_optimal.ehspc)]],
+        [[0, 8e9], [0, 100], [0, 6e12], [0, 3e12], [0, 1.5*max(world3_optimal.ai)], [0, 1.5*max(world3_optimal.ppol)]],
     figsize=(10, 7),
     title="World3 Simulation from 1900 to 2200, optimal policy"
 )
-
+    
 # Initialize a position for the first annotation
 x_pos = 0.05  # Adjust as needed
 y_pos = 0.95  # Start from the top, adjust as needed
@@ -168,8 +158,9 @@ ax = plt.gcf().gca()
 
 for var, label in zip(variables, labels):
     max_value = np.max(var)
+    min_value = np.min(var)
     # Place text annotation within the plot, using figure's coordinate system
-    ax.text(x_pos, y_pos, f'{label} Max: {max_value:.2f}', transform=ax.transAxes,
+    ax.text(x_pos, y_pos, f'{label} Max: {max_value:.2f}, Min {min_value:.2f}', transform=ax.transAxes,
             verticalalignment='top', horizontalalignment='left')
     y_pos -= vertical_offset  # Move up for the next line
 plt.show()
