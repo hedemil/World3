@@ -19,7 +19,7 @@ plt.rcParams.update(params)
 
 # Actions and control signals setup
 actions = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5]  # Action space
-control_signals = ['icor'] # 'icor', 'scor', 'fioaa', 'fioac', 'fioas', 'nruf', 'fcaor'
+control_signals = ['fcaor'] # 'icor', 'scor', 'fioaa', 'fioac', 'fioas', 'nruf', 'fcaor'
 
 # Generate all action combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))

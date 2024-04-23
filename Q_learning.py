@@ -2,22 +2,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import itertools
 
-from pyworld3 import World3, world3
+from pyworld3 import World3
 from pyworld3.utils import plot_world_variables
+from state_reward import StateNormalizer, calculate_derivative, calculate_reward
 
 params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
 
-# Parameters
-alpha = 0.3  # Learning rate
-gamma = 0.95  # Discount factor
-epsilon = 0.2  # Exploration rate
-actions = [0.9, 0.95, 1.0, 1.05, 1.1]  # Action space
-control_signals = ['lmhs', 'fioas', 'alai']
-num_states = 27
-num_actions = len(actions)
-num_control_signals = len(control_signals)
 
+# Actions and control signals setup
+actions = [0.5, 1, 1.5]  # Action space
+control_signals = ['icor', 'fioac', 'fioaa']
 
 # Generate all combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
@@ -26,56 +21,50 @@ num_action_combos = len(action_combinations)
 # Mapping each combination to an index
 action_to_index = {combo: i for i, combo in enumerate(action_combinations)}
 
+# Parameters
+alpha = 0.3  # Learning rate
+gamma = 0.95  # Discount factor
+epsilon = 1.0  # Exploration rate
+epsilon_decay = 0.99
+epsilon_min = 0.01
+num_bins = 4
+state_vars = 7
+num_states = 4**state_vars
+num_actions = len(actions)
+num_control_signals = len(control_signals)
+
 # Initialize Q-table
 Q = np.zeros((num_states, num_action_combos))
 
-def discretize_pop(pop):
-    if pop < 5e9: return 0
-    elif pop < 7e9: return 1
-    else: return 2
+learning_episodes = 10 
+exploraion_episode = 50
+year_start = 2000
+year_max = 2200
+year_step = 5
 
-def discretize_le(le):
-    if le < 50: return 0
-    elif le < 70: return 1
-    else: return 2
+# Create an instance of the StateNormalizer
+state_normalizer = StateNormalizer()
 
-def discretize_fr(fr):
-    if fr < 1.5: return 0
-    elif fr < 2.5: return 1
-    else: return 2
+def get_state(world3):
+    state = {}
+    state['le'] = world3.le[-1]
+    state['le_derivative'] = calculate_derivative(world3.le)
+    state['population'] = world3.pop[-1]
+    state['iopc'] = world3.iopc[-1]
+    state['sopc'] = world3.sopc[-1]
+    state['ai'] = world3.ai[-1]  # consider normalizing by population if relevant
+    state['ppgr'] = world3.ppgr[-1]
 
-
-
-def get_state(pop, le, fr):
-    pop_index = discretize_pop(pop)
-    le_index = discretize_le(le)
-    fr_index = discretize_fr(fr)
-    num_le_bins = 3
-    num_fr_bins = 3
-    # Calculate a unique state index
-    state_index = pop_index * (num_le_bins * num_fr_bins) + le_index * num_fr_bins + fr_index
-    return state_index
+    state_normalizer.update_stats(state)
+    # Normalize or scale state values as appropriate
+    normalized_state = state_normalizer.normalize_state(state, num_bins)  # Assuming state_normalizer is set up
+    return np.array(list(normalized_state.values())).reshape(1, -1)
 
 # Q-learning update
 def update_Q(state, action_index, reward, next_state):
     future = np.max(Q[next_state])
     Q[state, action_index] = Q[state, action_index] + alpha * (reward + gamma * future - Q[state, action_index])
-
-# Reward calculation
-def calculate_reward(births, deaths, life_exp, health_service_pc, pop):
-    reward = 0
-    if births / deaths < 0.9:
-        reward += 0
-    elif births / deaths <= 1.1:
-        reward += 100
-    else:
-        reward += 0
-    reward += 0 if life_exp < 55 else 100
-    reward += 0 if health_service_pc < 50 else 100
-    reward -= 10000 if pop < 6e9 or pop > 8e9 else 0
-    return reward
-
-    
+   
 def run_world3_simulation(year_min, year_max, dt=1, prev_run_data=None, ordinary_run=True, k_index=1):
     
     prev_run_prop = prev_run_data["world_props"] if prev_run_data else None
@@ -113,110 +102,137 @@ def update_control(control_signals_actions, prev_control):
     :return: Updated control signals dictionary
     """
     for control_signal, action_value in control_signals_actions:
-        prev_control[control_signal + '_control'] *= action_value
+        prev_control[control_signal + '_control'] = action_value*prev_control['initial_value'][control_signal + '_control']
     return prev_control
 
-# Simulation loop
-# Initial setup for the World3 model
-learning_episodes = 500  
-exploraion_episode = 50
-initial_year = 2000
-final_year = 2100
-year_step = 5
+def simulate_step(year, prev_data, action_combination_index, control_signals):
+    """
+    Simulate one step of the World3 model based on the given action and update control signals.
 
+    :param year: Current year of simulation.
+    :param prev_data: Previous run data of the World3 model.
+    :param action_combination_index: Index of the selected action combination.
+    :param control_signals: List of control signals to be adjusted.
+    :return: Tuple of (next_state, reward, done)
+    """
+    
+    # Retrieve the action combination using the selected index
+    selected_action_combination = action_combinations[action_combination_index]
+    
+    # Update control signals based on the selected action
+    control_variables_actions = list(zip(control_signals, selected_action_combination))
+    prev_data['control_signals'] = update_control(control_variables_actions, prev_data['control_signals'])
+
+    
+    # Run the World3 model for the next step
+    next_year = year + year_step
+    try:
+        prev_data, world3_current = run_world3_simulation(year_min=year, year_max=next_year, prev_run_data=prev_data, ordinary_run=False)
+    except Exception as ex:
+        print(f"Failed to initialize the World3 simulation year: {year}, exception: {ex}")
+    
+    
+    next_state = get_state(world3_current)
+
+
+    # Calculate reward (this function needs to be defined based on your criteria)
+    reward = calculate_reward(world3_current)
+    
+    # Check if simulation is done (e.g., reached final year)
+    done = next_year >= year_max
+
+    
+    return prev_data, next_state, reward, done
+
+
+episode_rewards = []
 
 for episode in range(learning_episodes):
+    reward_total = 0
     # Run the first simulation
-    prev_data, world3_start = run_world3_simulation(year_min=1900, year_max=2000)
+    prev_data, world3_start = run_world3_simulation(year_min=1900, year_max=1905)
+    state = get_state(world3_start)
 
      # Run the model with actions every 5th year
-    for year in range(initial_year, final_year + 1, year_step):
-        current_pop = prev_data['init_vars']['population']['pop'][-1]
-        current_le = prev_data['init_vars']['population']['le'][-1]
-        current_fr = prev_data['init_vars']['agriculture']['fr'][-1]
-        state = get_state(current_pop, current_le, current_fr)
+    for year in range(year_start, year_max + 1, year_step):
         
         if np.random.rand() < epsilon:  # Exploration
-            action_combination_index = np.random.choice(len(action_combinations))
+            action_index = np.random.choice(len(action_combinations))
         else:  # Exploitation
-            state = get_state(current_pop, current_le, current_fr)
-            action_combination_index = np.argmax(Q[state])
+            action_index = np.argmax(Q[state])
 
-        # Retrieve the action combination using the selected index
-        selected_action_combination = action_combinations[action_combination_index]
-
-        # Now apply these actions to the control signals
-        control_variables_actions = list(zip(control_signals, selected_action_combination))
-        prev_data['control_signals'] = update_control(control_variables_actions, prev_data['control_signals'])
-
-        prev_data, world3_current = run_world3_simulation(year_min=year, year_max=year + year_step, prev_run_data=prev_data, ordinary_run=False, k_index=prev_data["world_props"]["k"])
-
-        # Calculate reward and update Q-table
-        next_pop = world3_current.pop[-1]
-        next_le = world3_current.le[-1]
-        next_fr = world3_current.fr[-1]
-        next_birth = world3_current.cbr[-1]
-        next_death = world3_current.cdr[-1]
+        prev_data, next_state, reward, done = simulate_step(year, prev_data, action_index, control_signals)
         
-        reward = calculate_reward(next_birth, next_death, next_le, next_fr, next_pop)
-        next_state = get_state(next_pop, next_le, next_fr)
-        
-        update_Q(state, action_combination_index, reward, next_state)
+        reward_total += reward
 
-        epsilon *= 0.95
+        update_Q(state, action_index, reward, next_state)
 
-print(Q)
-optimal_policy = np.argmax(Q, axis=1)
-print("Optimal policy (state -> action index):", optimal_policy)
+        state = next_state
 
-prev_data_optimal, world3_frst = run_world3_simulation(year_min=1900, year_max=2000)
-
-for year in range(initial_year, final_year + 1, year_step):
-    # Get the current state
-    current_pop = prev_data_optimal['init_vars']['population']['pop'][-1]
-    current_le = prev_data_optimal['init_vars']['population']['le'][-1]
-    current_fr = prev_data_optimal['init_vars']['agriculture']['fr'][-1]
-    state = get_state(current_pop, current_le, current_fr)
+        epsilon = max(epsilon_min, epsilon*epsilon_decay)
     
-    # Use the optimal policy to find the optimal action combination index
-    optimal_action_combination_index = optimal_policy[state]
+    episode_rewards.append(reward_total)
+
+def plot_rewards(episode_rewards):
+    plt.figure(figsize=(10, 5))
+    plt.plot(episode_rewards, label='Reward per Episode')
+    plt.xlabel('Episode')
+    plt.ylabel('Total Reward')
+    plt.title('Total Reward per Episode Over Time')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+plot_rewards(episode_rewards)
+
+# print(Q)
+# optimal_policy = np.argmax(Q, axis=1)
+# print("Optimal policy (state -> action index):", optimal_policy)
+
+# prev_data_optimal, world3_optimal = run_world3_simulation(year_min=1900, year_max=2000)
+
+# for year in range(year_start, year_max + 1, year_step):
+#     state = get_state(world3_optimal)
     
-    # Retrieve the optimal action combination
-    optimal_action_combination = action_combinations[optimal_action_combination_index]
+#     # Use the optimal policy to find the optimal action combination index
+#     optimal_action_combination_index = optimal_policy[state]
     
-    # Construct the list of control signals and their corresponding actions
-    control_variables_actions = list(zip(control_signals, optimal_action_combination))
+#     # Retrieve the optimal action combination
+#     optimal_action_combination = action_combinations[optimal_action_combination_index]
     
-    # Update the control signals for the next simulation
-    prev_data_optimal['control_signals'] = update_control(control_variables_actions, prev_data_optimal['control_signals'])
+#     # Construct the list of control signals and their corresponding actions
+#     control_variables_actions = list(zip(control_signals, optimal_action_combination))
     
-    # Run the simulation for the next time step using the updated control signals
-    prev_data_optimal, world3_optimal = run_world3_simulation(year_min=year, year_max=year + year_step, prev_run_data=prev_data_optimal, ordinary_run=False, k_index=prev_data_optimal["world_props"]["k"])
+#     # Update the control signals for the next simulation
+#     prev_data_optimal['control_signals'] = update_control(control_variables_actions, prev_data_optimal['control_signals'])
+    
+#     # Run the simulation for the next time step using the updated control signals
+#     prev_data_optimal, world3_optimal = run_world3_simulation(year_min=year, year_max=year + year_step, prev_run_data=prev_data_optimal, ordinary_run=False, k_index=prev_data_optimal["world_props"]["k"])
 
-variables = [world3_optimal.le, world3_optimal.fr, world3_optimal.sc, world3_optimal.pop]
-labels = ["LE", "FR", "SC", "POP"]
+# variables = [world3_optimal.le, world3_optimal.fr, world3_optimal.sc, world3_optimal.pop]
+# labels = ["LE", "FR", "SC", "POP"]
 
-# Plot the combined results
-plot_world_variables(
-    world3_optimal.time,
-    variables,
-    labels,
-        [[0, 100], [0, 4], [0, 6e12],  [0, 10e9]],
-    figsize=(10, 7),
-    title="World3 Simulation from 1900 to 2100, optimal policy"
-)
+# # Plot the combined results
+# plot_world_variables(
+#     world3_optimal.time,
+#     variables,
+#     labels,
+#         [[0, 100], [0, 4], [0, 6e12],  [0, 10e9]],
+#     figsize=(10, 7),
+#     title="World3 Simulation from 1900 to 2100, optimal policy"
+# )
 
-# Initialize a position for the first annotation
-x_pos = 0.05  
-y_pos = 0.95  
-vertical_offset = 0.05  
+# # Initialize a position for the first annotation
+# x_pos = 0.05  
+# y_pos = 0.95  
+# vertical_offset = 0.05  
 
 
-ax = plt.gcf().gca()
+# ax = plt.gcf().gca()
 
-for var, label in zip(variables, labels):
-    max_value = np.max(var)
-    ax.text(x_pos, y_pos, f'{label} Max: {max_value:.2f}', transform=ax.transAxes,
-            verticalalignment='top', horizontalalignment='left')
-    y_pos -= vertical_offset  
-plt.show()
+# for var, label in zip(variables, labels):
+#     max_value = np.max(var)
+#     ax.text(x_pos, y_pos, f'{label} Max: {max_value:.2f}', transform=ax.transAxes,
+#             verticalalignment='top', horizontalalignment='left')
+#     y_pos -= vertical_offset  
+# plt.show()

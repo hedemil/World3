@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import time
 
 from dqn import DQNAgent
-from state_reward import StateNormalizer, calculate_reward
+from state_reward import StateNormalizer, calculate_reward, calculate_derivative
 from pyworld3 import World3
 
 # Set TensorFlow logging level
@@ -14,25 +14,42 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.get_logger().setLevel('ERROR')
 
 # Actions and control signals setup
-actions = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5]  # Action space
-control_signals = ['scor'] # 'icor', 'scor', 'fioaa', 'fioac', 'fioas', 'nruf', 'fcaor'
+actions = [0.5, 1, 1.5]  # Action space
+control_signals = ['icor', 'fioac', 'fioaa'] # 'icor', 'scor', 'fioaa', 'fioac', 'fioas', 'nruf', 'fcaor'
 # 'icor' can controll LE a little
+# 'scor' can not controll LE with mse
 
 # Generate all action combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
 
 # Define the environment/simulation parameters
-state_size = 6  # Number of components in the state vector
+state_size = 7  # Number of components in the state vector
 action_size = len(action_combinations)
 agent = DQNAgent(state_size, action_size)
-episodes = 100
+num_bins = 10
+episodes = 500
 batch_size = 32
 year_step = 5
-year_max = 2200
+year_max = 2225
 year_start = 1905
 
 # Create an instance of the StateNormalizer
 state_normalizer = StateNormalizer()
+
+def get_state(world3):
+    state = {}
+    state['le'] = world3.le[-1]
+    state['le_derivative'] = calculate_derivative(world3.le)
+    state['population'] = world3.pop[-1]
+    state['iopc'] = world3.iopc[-1]
+    state['sopc'] = world3.sopc[-1]
+    state['ai'] = world3.ai[-1]  # consider normalizing by population if relevant
+    state['ppgr'] = world3.ppgr[-1]
+
+    state_normalizer.update_stats(state)
+    # Normalize or scale state values as appropriate
+    normalized_state = state_normalizer.normalize_state(state, num_bins)  # Assuming state_normalizer is set up
+    return np.array(list(normalized_state.values())).reshape(1, -1)
 
 
 def run_world3_simulation(year_min, year_max, dt=1, prev_run_data=None, ordinary_run=True, k_index=1):
@@ -102,24 +119,9 @@ def simulate_step(year, prev_data, action_combination_index, control_signals):
     except Exception as ex:
         print(f"Failed to initialize the World3 simulation year: {year}, exception: {ex}")
     
-    raw_state = {
-        'pop': world3_current.pop[-1],
-        'le': world3_current.le[-1],
-        'so': world3_current.so[-1],
-        'io': world3_current.io[-1],
-        'ai': world3_current.ai[-1],
-        'ppol': world3_current.ppol[-1]
-
-    }
-
-    # Calculate next state
-    state_normalizer.update_stats(state=raw_state)
     
-    # Normalize the state with the updated statistics
-    normalized_state = state_normalizer.normalize_state(state=raw_state)
-    next_state = np.array(list(normalized_state.values())).reshape(1, -1)
+    next_state = get_state(world3_current)
 
-    # next_state = state_normalizer.state_test(world3_current.nruf[-1])
 
     # Calculate reward (this function needs to be defined based on your criteria)
     reward = calculate_reward(world3_current)
@@ -136,33 +138,21 @@ save_path = "/content/drive/My Drive/Colab Notebooks/"
 
 try:
     episode_rewards = []  # List to store sum of rewards for each episode
+    evaluate_tloss = []
+    evaluate_vloss = []
 
-    episode_durations = []
     for e in range(episodes):
         total_reward = 0
-        agent.reset()
+        # agent.reset()
         print('Epsilon: ', agent.epsilon)
         start_time = time.time()  # Start timing the episode
         # Initialize start values for simulation
         try:
-            prev_data, _ = run_world3_simulation(year_min=1900, year_max=year_start)
+            prev_data, world3_start = run_world3_simulation(year_min=1900, year_max=year_start)
         except Exception as ex:
             print(f"Failed to initialize the World3 simulation: {ex}")
 
-        # Initial state normalization
-        raw_state = {
-            'pop': prev_data['init_vars']['population']['pop'][-1],
-            'le': prev_data['init_vars']['population']['le'][-1],
-            'so': prev_data['init_vars']['capital']['so'][-1],
-            'io': prev_data['init_vars']['capital']['io'][-1],
-            'ai': prev_data['init_vars']['agriculture']['ai'][-1],
-            'ppol': prev_data['init_vars']['pollution']['ppol'][-1]
-        }
-        # state_normalizer.update_stats(state=raw_state)
-        normalized_state = state_normalizer.normalize_state(state=raw_state)
-        current_state = np.array(list(normalized_state.values())).reshape(1, -1)
-
-        # current_state = state_normalizer.state_test(prev_data['init_vars']['resource']['nruf'][-1])
+        current_state = get_state(world3_start)
 
         for year in range(year_start, year_max + 1, year_step):
             
@@ -193,12 +183,12 @@ try:
 
 
         # Update the target network at the end of each episode
-        agent.update_target_model()
+        # agent.update_target_model()
 
         episode_rewards.append(total_reward)
         end_time = time.time()  # End timing the episode
         duration = end_time - start_time
-        episode_durations.append(duration)
+        
         print(f"Episode {e+1} completed in {duration:.2f} seconds with Total Reward: {total_reward}")
 
         if (e + 1) % 100 == 0:
@@ -211,10 +201,11 @@ try:
             except Exception as ex:
                 print('Failed to save ' f'Episode: {e + 1}/{episodes}, exception: {ex}')
 
-        # Periodic evaluation
+        # # Periodic evaluation
         if (e + 1) % 10 == 0:  # Evaluate every 10 episodes
-            print("Evaluating model...")
-            agent.evaluate_model(batch_size=32)
+            train_loss, val_loss = agent.evaluate_model(batch_size=32)
+            evaluate_tloss.append(train_loss)
+            evaluate_vloss.append(val_loss)
 
 except Exception as ex:
     print(f"An unexpected error occurred: {ex}")
@@ -227,16 +218,6 @@ try:
 except Exception as ex:
     print('Failed to save model')
 
-# try:
-#     #agent.model.save(f"{save_path}final_model.weights.h5")
-#     agent.model.save("final_model.h5")  # Saves the full model
-#     print('Model saved successfully')
-# except Exception as ex:
-#     print('Failed to save model:', ex)
-
-# print all episode durations
-print("Episode durations:", episode_durations)
-
 def plot_rewards(episode_rewards):
     plt.figure(figsize=(10, 5))
     plt.plot(episode_rewards, label='Reward per Episode')
@@ -247,5 +228,43 @@ def plot_rewards(episode_rewards):
     plt.grid(True)
     plt.show()
 
+def plot_loss(evaluate_loss):
+    plt.figure(figsize=(10, 5))
+    plt.plot(evaluate_loss, label='Loss per Episode')
+    plt.xlabel('Episode')
+    plt.ylabel('Loss')
+    plt.title('Loss per Episode Over Time')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+def plot_losses(t_loss, v_loss):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    fig = plt.figure(figsize=(10, 5))
+
+    ax1 = fig.add_subplot(1, 2, 1)
+    ax2 = fig.add_subplot(1, 2, 2)
+
+    x = np.arange(start=1, stop=len(v_loss) + 1, step=1)
+
+    ax1.plot(x, v_loss, label='Validation loss evaluated every 10 ep')
+    ax1.set_xlabel('Ep x10')
+    ax1.set_ylabel('Validation Loss')
+    ax1.set_title('Validation Loss')
+    ax1.legend()
+
+    ax2.plot(x, t_loss, label='Training Loss evaluated every 10 ep')
+    ax2.set_xlabel('Ep x10')
+    ax2.set_ylabel('Loss')
+    ax2.set_title('Loss')
+    ax2.legend()  # Corrected to use ax2.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
 plot_rewards(episode_rewards)
+plot_losses(evaluate_tloss, evaluate_vloss)
 

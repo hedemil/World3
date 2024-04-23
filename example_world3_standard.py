@@ -22,15 +22,15 @@ so_der = calculate_derivative(world3.time, world3.so)
 fpc_der = calculate_derivative(world3.time, world3.fpc)
 pop_der = calculate_derivative(world3.time, world3.pop)
 
-variables = [world3.pop, world3.le, world3.so, world3.io, world3.ai, world3.ppol]
-labels = ["POP", "LE", "SO", "IO", "AI", "PPOL"]
+variables = [le_der, world3.le, world3.so, world3.io, world3.ai, world3.ppol]
+labels = ["LE_DER", "LE", "SO", "IO", "AI", "PPOL"]
 
 # Plot the combined results
 plot_world_variables(
     world3.time,
     variables,
     labels,
-        [[0, 8e9], [0, 100], [0, 6e12], [0, 3e12], [0, 1.5*max(world3.ai)], [0, 1.5*max(world3.ppol)]],
+        [[-2, 6], [0, 100], [0, 6e12], [0, 3e12], [0, 1.5*max(world3.ai)], [0, 1.5*max(world3.ppol)]],
     figsize=(10, 7),
     title="World3 Simulation from 1900 to 2200, standard"
 )
