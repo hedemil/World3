@@ -48,7 +48,7 @@ def get_state(world3):
 
     state_normalizer.update_stats(state)
     # Normalize or scale state values as appropriate
-    normalized_state = state_normalizer.normalize_state(state, num_bins)  # Assuming state_normalizer is set up
+    normalized_state = state_normalizer.normalize_state(state)  # Assuming state_normalizer is set up
     return np.array(list(normalized_state.values())).reshape(1, -1)
 
 
@@ -138,8 +138,7 @@ save_path = "/content/drive/My Drive/Colab Notebooks/"
 
 try:
     episode_rewards = []  # List to store sum of rewards for each episode
-    evaluate_tloss = []
-    evaluate_vloss = []
+    # Reward for doing nothing is -2102.7390384207674
 
     for e in range(episodes):
         total_reward = 0
@@ -167,8 +166,7 @@ try:
             except Exception as ex:
                 print(f"An error occurred during the simulation step {e}: {ex}") 
                 continue  
-            
-            
+
             if done:
                 agent.epsilon_dec()
                 break
@@ -180,6 +178,8 @@ try:
                     print(f"Error during training: {re}")
                 except Exception as ex:
                     print(f"Unexpected error during training: {ex}")
+            
+            
 
 
         # Update the target network at the end of each episode
@@ -201,12 +201,6 @@ try:
             except Exception as ex:
                 print('Failed to save ' f'Episode: {e + 1}/{episodes}, exception: {ex}')
 
-        # # Periodic evaluation
-        if (e + 1) % 10 == 0:  # Evaluate every 10 episodes
-            train_loss, val_loss = agent.evaluate_model(batch_size=32)
-            evaluate_tloss.append(train_loss)
-            evaluate_vloss.append(val_loss)
-
 except Exception as ex:
     print(f"An unexpected error occurred: {ex}")
 
@@ -226,45 +220,48 @@ def plot_rewards(episode_rewards):
     plt.title('Total Reward per Episode Over Time')
     plt.legend()
     plt.grid(True)
+    # plot_path = f"{save_path}reward_plot.png"
+    # plt.savefig(plot_path)
     plt.show()
+    # print(f"Reward plot saved: {plot_path}")
 
-def plot_loss(evaluate_loss):
+def plot_loss(agent):
     plt.figure(figsize=(10, 5))
-    plt.plot(evaluate_loss, label='Loss per Episode')
+    plt.plot(agent.training_loss, label='Loss every 10 Episodes')
     plt.xlabel('Episode')
     plt.ylabel('Loss')
-    plt.title('Loss per Episode Over Time')
+    plt.title('Loss every 10 Episodes Over Time')
     plt.legend()
     plt.grid(True)
+    # plot_path = f"{save_path}reward_plot.png"
+    # plt.savefig(plot_path)
+    plt.show()
+    # print(f"Reward plot saved: {plot_path}")
+
+def moving_average(values, window_size):
+    """ Compute a simple moving average. """
+    cumsum = np.cumsum(values, dtype=float)
+    cumsum[window_size:] = cumsum[window_size:] - cumsum[:-window_size]
+    return cumsum[window_size - 1:] / window_size
+
+
+def plot_ma(value, metric):
+    plt.plot(range(len(value)), value)
+    plt.xlabel('Episodes')
+    plt.ylabel(f'Moving Average of {metric}')
+    plt.title(f'Moving Average of {metric}s Over Episodes')
     plt.show()
 
-def plot_losses(t_loss, v_loss):
-    import matplotlib.pyplot as plt
-    import numpy as np
+    
 
-    fig = plt.figure(figsize=(10, 5))
-
-    ax1 = fig.add_subplot(1, 2, 1)
-    ax2 = fig.add_subplot(1, 2, 2)
-
-    x = np.arange(start=1, stop=len(v_loss) + 1, step=1)
-
-    ax1.plot(x, v_loss, label='Validation loss evaluated every 10 ep')
-    ax1.set_xlabel('Ep x10')
-    ax1.set_ylabel('Validation Loss')
-    ax1.set_title('Validation Loss')
-    ax1.legend()
-
-    ax2.plot(x, t_loss, label='Training Loss evaluated every 10 ep')
-    ax2.set_xlabel('Ep x10')
-    ax2.set_ylabel('Loss')
-    ax2.set_title('Loss')
-    ax2.legend()  # Corrected to use ax2.legend()
-
-    plt.tight_layout()
-    plt.show()
-
+window_size = 10
+ma_rewards = moving_average(episode_rewards, window_size)
+ma_loss = moving_average(agent.training_loss, window_size)
 
 plot_rewards(episode_rewards)
-plot_losses(evaluate_tloss, evaluate_vloss)
+plot_ma(ma_rewards, 'Reward')
+
+plot_loss(agent)
+plot_ma(ma_loss, 'Loss')
+
 

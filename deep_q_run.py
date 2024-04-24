@@ -18,14 +18,14 @@ params = {"lines.linewidth": "3"}
 plt.rcParams.update(params)
 
 # Actions and control signals setup
-actions = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5]  # Action space
-control_signals = ['fcaor'] # 'icor', 'scor', 'fioaa', 'fioac', 'fioas', 'nruf', 'fcaor'
+actions = [0.5, 1, 1.5]  # Action space
+control_signals = ['icor', 'fioac', 'fioaa'] # 'icor', 'scor', 'fioaa', 'fioac', 'fioas', 'nruf', 'fcaor'
 
 # Generate all action combinations
 action_combinations = list(itertools.product(actions, repeat=len(control_signals)))
 
 # Define the environment/simulation parameters
-state_size = 6  # Number of components in the state vector
+state_size = 7  # Number of components in the state vector
 action_size = len(action_combinations)
 agent = DQNAgent(state_size, action_size, model_path='final_model.keras')
 agent.epsilon = 0
@@ -40,6 +40,22 @@ year_start = 1970
 
 # Create an instance of the StateNormalizer
 state_normalizer = StateNormalizer()
+
+def get_state(world3):
+    state = {}
+    state['le'] = world3.le[-1]
+    state['le_derivative'] = calculate_derivative(world3.le)
+    state['population'] = world3.pop[-1]
+    state['iopc'] = world3.iopc[-1]
+    state['sopc'] = world3.sopc[-1]
+    state['ai'] = world3.ai[-1]  # consider normalizing by population if relevant
+    state['ppgr'] = world3.ppgr[-1]
+
+    state_normalizer.update_stats(state)
+    # Normalize or scale state values as appropriate
+    normalized_state = state_normalizer.normalize_state(state)  # Assuming state_normalizer is set up
+    return np.array(list(normalized_state.values())).reshape(1, -1)
+
 
 
 def run_world3_simulation(year_min, year_max, dt=1, prev_run_data=None, ordinary_run=True, k_index=1):
@@ -87,37 +103,13 @@ def update_control(control_signals_actions, prev_control):
 prev_data_state, world3_frst = run_world3_simulation(year_min=1900, year_max=year_max)
 
 for year in range(year_start, year_max + 1, year_step):
-    # Initial state normalization
-    raw_state = {
-        'pop': prev_data_state['init_vars']['population']['pop'][-1],
-        'le': prev_data_state['init_vars']['population']['le'][-1],
-        'so': prev_data_state['init_vars']['capital']['so'][-1],
-        'io': prev_data_state['init_vars']['capital']['io'][-1],
-        'ai': prev_data_state['init_vars']['agriculture']['ai'][-1],
-        'ppol': prev_data_state['init_vars']['pollution']['ppol'][-1]
-    }
+    state = get_state(world3_frst)
 
-    state_normalizer.update_stats(state=raw_state)
-    # Run the simulation for the next time step using the updated control signals
-    prev_data_state, world3_state = run_world3_simulation(year_min=year, year_max=year + 5, prev_run_data=prev_data_state, ordinary_run=False)
-
-prev_data_optimal, world3_frst = run_world3_simulation(year_min=1900, year_max=year_start)
+prev_data_optimal, world3_optimal = run_world3_simulation(year_min=1900, year_max=year_start)
 
 for year in range(year_start, year_max + 1, year_step):
 
-    # Initial state normalization
-    raw_state = {
-        'pop': prev_data_optimal['init_vars']['population']['pop'][-1],
-        'le': prev_data_optimal['init_vars']['population']['le'][-1],
-        'so': prev_data_optimal['init_vars']['capital']['so'][-1],
-        'io': prev_data_optimal['init_vars']['capital']['io'][-1],
-        'ai': prev_data_optimal['init_vars']['agriculture']['ai'][-1],
-        'ppol': prev_data_optimal['init_vars']['pollution']['ppol'][-1]
-    }
-
-    state_normalizer.update_stats(state=raw_state)
-    normalized_state = state_normalizer.normalize_state(state=raw_state)
-    current_state = np.array(list(normalized_state.values())).reshape(1, -1)
+    current_state = get_state(world3_optimal)
     
     # Use the DQN model to find the optimal action
     action_index = agent.act(current_state)
