@@ -59,6 +59,16 @@ def calculate_reward(current_world):
 # 1 - With
 # 2 - Without
 
+# Target network tau
+# 1 - tau = tau*1.01 per update
+# 2 - tau = 0.01
+
+# Architecture
+# 1 - 512 256 256 128 action
+# 2 - 256 256 256 128 128 action
+# 3 - 256 256 256 128 128 128 action
+# 4 - 512 256 256 128 128 128 action
+
 # Episodes
 # 1 - 500 ep (Epsilon decay = 0.99)
 # 2 - 2000 ep (Epsilon decay = 0.9974)

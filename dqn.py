@@ -10,7 +10,7 @@ import os
 import tensorflow as tf
 # Next run, change gamma to 0.75, change the state normalizer to 10 states, e.g round 1 decimal
 class DQNAgent:
-    def __init__(self, state_size, action_size, learning_rate=0.001, gamma=0.95, tau=0.01, epsilon=1.0, epsilon_decay=0.99, epsilon_min=0.01, memory_size=20000, verbose=0, model_path=None, step_count=0):
+    def __init__(self, state_size, action_size, learning_rate=0.001, gamma=0.95, tau=0.01, epsilon=1.0, epsilon_decay=0.9974, epsilon_min=0.01, memory_size=20000, verbose=0, model_path=None, step_count=0):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=memory_size)
@@ -49,12 +49,14 @@ class DQNAgent:
         """Neural Net for Deep-Q learning Model."""
         init = VarianceScaling(scale=2, mode='fan_in', distribution='uniform')
         model = Sequential()
-        model.add(Dense(512, input_dim=self.state_size, activation='relu', kernel_initializer=init))
+        model.add(Dense(256, input_dim=self.state_size, activation='relu', kernel_initializer=init))
         # model.add(Dropout(0.2)) # Help reduce overfitting
         model.add(Dense(256, activation='relu'))
         # model.add(Dropout(0.2))
         model.add(Dense(256, activation='relu')) # Add extra layer
         # model.add(Dropout(0.2))
+        model.add(Dense(128, activation='relu'))
+        model.add(Dense(128, activation='relu'))
         model.add(Dense(128, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
         model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate))
@@ -94,29 +96,16 @@ class DQNAgent:
         # Train the model on the states and the updated Q-values
         self.model.fit(states_train, q_values_train, epochs=1, verbose=0, batch_size=batch_size)
 
-        # Soft update the target model every 5th step
+        # Soft update the target model every 2nd step
         if self.step_count % 5 == 0:
             self.update_target_model()
+            # self.tau = self.tau*1.01
 
         self.step_count += 1
 
         if (self.episode + 1) % 10 == 0:
-            # Evaluate losses every 19th episode
-            # val_size = int(len(minibatch) * validation)  # Convert to int
-            # train_size = len(minibatch) - val_size  # Already an integer by subtraction
-            
-            # training_batch = minibatch[:train_size]
-            # validation_batch = minibatch[-val_size:]
 
-            # states_train, q_values_train = self.prepare_data(training_batch)  
-            # states_val, q_values_val = self.prepare_data(validation_batch)
-
-            self.training_loss.append(self.model.evaluate(states_train, q_values_train, verbose=1))
-            
-            # self.validation_loss.append(self.model.evaluate(states_val, q_values_val, verbose=0))
-
-        
-
+            self.training_loss.append(self.model.evaluate(states_train, q_values_train, verbose=0))
         
     # Function to extract components and prepare data
     def prepare_data(self, samples):
@@ -149,39 +138,7 @@ class DQNAgent:
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
         self.episode += 1
     
-
-    # def evaluate_model(self, batch_size, validation_split=0.2):
-    #     """Evaluate the model using a set of experiences from the memory, split into training and validation."""
-    #     total_samples = len(self.memory)
-    #     if total_samples < 2 * batch_size:  # Ensuring there's enough samples for both training and validation
-    #         print("Not enough samples in memory to perform evaluation with the given batch size.")
-    #         return
-
-    #     # Convert memory deque to a list for easier sampling
-    #     memory_list = list(self.memory)
-
-    #     # Shuffle indices and split for training and validation
-    #     indices = np.arange(total_samples)
-    #     np.random.shuffle(indices)
-
-    #     # Ensure non-overlapping samples for training and validation
-    #     training_indices = indices[:batch_size]
-    #     validation_indices = indices[-batch_size:]
-
-    #     # Sample from training and validation sets using indices
-    #     training_samples = [memory_list[i] for i in training_indices]
-    #     validation_samples = [memory_list[i] for i in validation_indices]
-
-
-    #     # Prepare training and validation data
-    #     train_states, train_target_q_values = prepare_data(training_samples)
-    #     val_states, val_target_q_values = prepare_data(validation_samples)
-
-    #     # Evaluate losses
-    #     training_loss = self.model.evaluate(train_states, train_target_q_values, verbose=0)
-    #     validation_loss = self.model.evaluate(val_states, val_target_q_values, verbose=0)
-
-    #     return training_loss, validation_loss
+    
 
     def load(self, path_to_model):
         """Load saved model."""

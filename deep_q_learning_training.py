@@ -14,7 +14,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.get_logger().setLevel('ERROR')
 
 # Actions and control signals setup
-actions = [0.5, 1, 1.5]  # Action space
+actions = [1]  # Action space
 control_signals = ['icor', 'fioac', 'fioaa'] # 'icor', 'scor', 'fioaa', 'fioac', 'fioas', 'nruf', 'fcaor'
 # 'icor' can controll LE a little
 # 'scor' can not controll LE with mse
@@ -27,11 +27,11 @@ state_size = 7  # Number of components in the state vector
 action_size = len(action_combinations)
 agent = DQNAgent(state_size, action_size)
 num_bins = 10
-episodes = 500
+episodes = 2000
 batch_size = 32
 year_step = 5
-year_max = 2225
-year_start = 1905
+year_max = 2300
+year_start = 2000
 
 # Create an instance of the StateNormalizer
 state_normalizer = StateNormalizer()
@@ -195,8 +195,8 @@ try:
             print(f"Episode: {e + 1}/{episodes}")
             #agent.save(f"{save_path}model_weights_episode_{e+1}.h5")
             try:
-                #agent.save(f"{save_path}model_weights_episode_{e+1}.h5")
-                agent.save(f"episode_{e+1}_model.keras")
+                agent.save(f"{save_path}episode_{e+1}_model.keras")
+                # agent.save(f"episode_{e+1}_model.keras")
                 print(f"Episode: {e + 1}/{episodes} saved sucesfully")
             except Exception as ex:
                 print('Failed to save ' f'Episode: {e + 1}/{episodes}, exception: {ex}')
@@ -205,7 +205,8 @@ except Exception as ex:
     print(f"An unexpected error occurred: {ex}")
 
 try:
-    agent.save('final_model.keras')
+    # agent.save('final_model.keras')
+    agent.save(f"{save_path}final_model.keras")
     #agent.save("final_model.weights.h5")
     print('Model saved succesfully')
 
@@ -220,8 +221,8 @@ def plot_rewards(episode_rewards):
     plt.title('Total Reward per Episode Over Time')
     plt.legend()
     plt.grid(True)
-    # plot_path = f"{save_path}reward_plot.png"
-    # plt.savefig(plot_path)
+    plot_path = f"{save_path}reward_plot.png"
+    plt.savefig(plot_path)
     plt.show()
     # print(f"Reward plot saved: {plot_path}")
 
@@ -233,8 +234,8 @@ def plot_loss(agent):
     plt.title('Loss every 10 Episodes Over Time')
     plt.legend()
     plt.grid(True)
-    # plot_path = f"{save_path}reward_plot.png"
-    # plt.savefig(plot_path)
+    plot_path = f"{save_path}loss_plot.png"
+    plt.savefig(plot_path)
     plt.show()
     # print(f"Reward plot saved: {plot_path}")
 
@@ -250,6 +251,8 @@ def plot_ma(value, metric):
     plt.xlabel('Episodes')
     plt.ylabel(f'Moving Average of {metric}')
     plt.title(f'Moving Average of {metric}s Over Episodes')
+    plot_path = f"{save_path}ma{metric}_plot.png"
+    plt.savefig(plot_path)
     plt.show()
 
     

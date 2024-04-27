@@ -51,25 +51,26 @@ def calculate_reward(current_world):
     le_value = current_world.le[-1]
     le_derivative = calculate_derivative(current_world.le)
 
+    # Adjusted penalty for very low LE values
     if le_value < 20:
-        reward -= 100
-
+        reward -= 500  # Reduced penalty for extremely low LE
     elif le_value < 30:
-        reward -= 50
+        reward -= 300  # Smaller penalty for low LE
 
     # Encourage growth until LE reaches 60
     elif le_value < 60:
-        reward += 10 * le_derivative  # Proportional reward based on the rate of increase
+        reward += 50 if le_derivative > 0 else -50
 
-    # When LE is above 60, encourage maintaining it and penalize large changes
+    # When LE is above 60, encourage improving and maintaining high LE
     elif le_value >= 60:
         reward += 50
+        # Encourage stability in high LE scenarios
         if abs(le_derivative) < 0.1:
-            reward += 50  # Big reward for stability
+            reward += 50  # Reward for stability
         elif abs(le_derivative) < 0.2:
-            reward += 10  # Smaller reward for less stability
+            reward += 25  # Lesser reward for moderate stability
         else:
-            reward -= 100 * abs(le_derivative)  # Proportional penalty for instability
+            reward -= 50 * abs(le_derivative)  # Penalty increases with instability
 
     # Penalize drastic drops in LE no matter the current value
     if le_derivative < -0.2:
@@ -79,5 +80,5 @@ def calculate_reward(current_world):
 
 def calculate_derivative(values):
     # Simple numerical differentiation: finite difference
-    return (values[-1]-values[-5])/5
+    return (values[-1]-values[-2])
     #return np.gradient(values, times)
